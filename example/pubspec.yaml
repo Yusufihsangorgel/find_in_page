@@ -1,0 +1,16 @@
+name: find_in_page_example
+description: Example app for the find_in_page package.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.4.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  find_in_page:
+    path: ../
+
+flutter:
+  uses-material-design: true
