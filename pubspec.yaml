@@ -2,7 +2,7 @@ name: find_in_page
 description: >-
   Ctrl+F for Flutter. Highlight search matches across your widgets,
   navigate between them, and scroll the active match into view.
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/Yusufihsangorgel/find_in_page
 issue_tracker: https://github.com/Yusufihsangorgel/find_in_page/issues
 
