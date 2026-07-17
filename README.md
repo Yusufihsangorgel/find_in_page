@@ -1,4 +1,4 @@
-![find_in_page](doc/banner.png)
+![find_in_page banner](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/banner.png)
 
 # find_in_page
 

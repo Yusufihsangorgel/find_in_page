@@ -4,6 +4,7 @@ description: >-
   navigate between them, and scroll the active match into view.
 version: 0.1.0
 repository: https://github.com/Yusufihsangorgel/find_in_page
+issue_tracker: https://github.com/Yusufihsangorgel/find_in_page/issues
 
 topics:
   - search
