@@ -1,30 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'controller.dart';
 
 /// A compact Material find bar: query field, match counter, and
-/// previous/next/close buttons. Enter jumps to the next match.
+/// previous/next/close buttons. Enter jumps to the next match; Escape
+/// invokes [onClose].
 ///
 /// Used by `FindInPageScope` out of the box; embed it yourself for custom
 /// placement.
 class FindBar extends StatefulWidget {
+  /// Creates a find bar driving [controller].
   const FindBar({
     required this.controller,
     this.onClose,
     this.autofocus = true,
     this.hintText = 'Find in page',
+    this.previousTooltip = 'Previous match',
+    this.nextTooltip = 'Next match',
+    this.closeTooltip = 'Close',
     super.key,
   });
 
+  /// The controller this bar reads and drives.
   final FindInPageController controller;
 
-  /// Called when the close button is pressed.
+  /// Called when the close button or Escape is pressed.
   final VoidCallback? onClose;
 
   /// Whether the query field grabs focus when the bar appears.
   final bool autofocus;
 
+  /// Placeholder text for the query field.
   final String hintText;
+
+  /// Tooltip for the previous-match button.
+  final String previousTooltip;
+
+  /// Tooltip for the next-match button.
+  final String nextTooltip;
+
+  /// Tooltip for the close button.
+  final String closeTooltip;
 
   @override
   State<FindBar> createState() => _FindBarState();
@@ -36,10 +53,35 @@ class _FindBarState extends State<FindBar> {
   final FocusNode _focusNode = FocusNode();
 
   @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_syncFromController);
+  }
+
+  @override
+  void didUpdateWidget(FindBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_syncFromController);
+      widget.controller.addListener(_syncFromController);
+      _syncFromController();
+    }
+  }
+
+  @override
   void dispose() {
+    widget.controller.removeListener(_syncFromController);
     _text.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Reflects programmatic `search`/`clearSearch` calls in the field,
+  /// without fighting the user while they are typing.
+  void _syncFromController() {
+    if (!_focusNode.hasFocus && _text.text != widget.controller.query) {
+      _text.text = widget.controller.query;
+    }
   }
 
   void _submit(String _) {
@@ -51,61 +93,73 @@ class _FindBarState extends State<FindBar> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      elevation: 4,
-      borderRadius: BorderRadius.circular(8),
-      color: theme.colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 180,
-              child: TextField(
-                controller: _text,
-                focusNode: _focusNode,
-                autofocus: widget.autofocus,
-                decoration: InputDecoration(
-                  hintText: widget.hintText,
-                  isDense: true,
-                  border: InputBorder.none,
+    return CallbackShortcuts(
+      bindings: {
+        if (widget.onClose != null)
+          const SingleActivator(LogicalKeyboardKey.escape): widget.onClose!,
+      },
+      child: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(8),
+        color: theme.colorScheme.surface,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: ConstrainedBox(
+                  constraints:
+                      const BoxConstraints(minWidth: 96, maxWidth: 180),
+                  child: TextField(
+                    controller: _text,
+                    focusNode: _focusNode,
+                    autofocus: widget.autofocus,
+                    decoration: InputDecoration(
+                      hintText: widget.hintText,
+                      isDense: true,
+                      border: InputBorder.none,
+                    ),
+                    onChanged: widget.controller.search,
+                    onSubmitted: _submit,
+                  ),
                 ),
-                onChanged: widget.controller.search,
-                onSubmitted: _submit,
               ),
-            ),
-            const SizedBox(width: 8),
-            ListenableBuilder(
-              listenable: widget.controller,
-              builder: (context, _) {
-                final count = widget.controller.matchCount;
-                final active = widget.controller.activeMatchIndex;
-                return Text(
-                  count == 0 ? '0/0' : '${active! + 1}/$count',
-                  style: theme.textTheme.bodySmall,
-                );
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_up),
-              tooltip: 'Previous match',
-              visualDensity: VisualDensity.compact,
-              onPressed: widget.controller.previous,
-            ),
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_down),
-              tooltip: 'Next match',
-              visualDensity: VisualDensity.compact,
-              onPressed: widget.controller.next,
-            ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Close',
-              visualDensity: VisualDensity.compact,
-              onPressed: widget.onClose,
-            ),
-          ],
+              const SizedBox(width: 8),
+              ListenableBuilder(
+                listenable: widget.controller,
+                builder: (context, _) {
+                  if (widget.controller.query.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  final count = widget.controller.matchCount;
+                  final active = widget.controller.activeMatchIndex;
+                  return Text(
+                    count == 0 ? '0/0' : '${active! + 1}/$count',
+                    style: theme.textTheme.bodySmall,
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_up),
+                tooltip: widget.previousTooltip,
+                visualDensity: VisualDensity.compact,
+                onPressed: widget.controller.previous,
+              ),
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_down),
+                tooltip: widget.nextTooltip,
+                visualDensity: VisualDensity.compact,
+                onPressed: widget.controller.next,
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: widget.closeTooltip,
+                visualDensity: VisualDensity.compact,
+                onPressed: widget.onClose,
+              ),
+            ],
+          ),
         ),
       ),
     );

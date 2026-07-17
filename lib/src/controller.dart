@@ -36,8 +36,12 @@ abstract interface class FindableSource {
 /// Sources register themselves in build order, which for a typical page is
 /// top-to-bottom visual order; matches and navigation follow that order.
 class FindInPageController extends ChangeNotifier {
+  /// Creates a controller with no active search.
+  FindInPageController();
+
   final List<FindableSource> _sources = [];
   final List<FindMatch> _matches = [];
+  final Map<FindableSource, List<FindMatch>> _matchesBySource = {};
   String _query = '';
   bool _caseSensitive = false;
   int? _activeIndex;
@@ -111,10 +115,8 @@ class FindInPageController extends ChangeNotifier {
 
   /// The matches inside [source], ordered by offset. Used by sources to
   /// render highlights.
-  List<FindMatch> matchesFor(FindableSource source) => [
-        for (final match in _matches)
-          if (identical(match.source, source)) match
-      ];
+  List<FindMatch> matchesFor(FindableSource source) =>
+      _matchesBySource[source] ?? const [];
 
   /// Whether [match] is the active one.
   bool isActive(FindMatch match) => identical(activeMatch, match);
@@ -130,6 +132,7 @@ class FindInPageController extends ChangeNotifier {
 
   void _recompute({bool resetActive = false}) {
     _matches.clear();
+    _matchesBySource.clear();
     if (_query.isNotEmpty) {
       final needle = _caseSensitive ? _query : _query.toLowerCase();
       for (final source in _sources) {
@@ -140,7 +143,9 @@ class FindInPageController extends ChangeNotifier {
         while (true) {
           final index = haystack.indexOf(needle, offset);
           if (index < 0) break;
-          _matches.add(FindMatch._(source, index, index + needle.length));
+          final match = FindMatch._(source, index, index + needle.length);
+          _matches.add(match);
+          (_matchesBySource[source] ??= []).add(match);
           offset = index + needle.length;
         }
       }

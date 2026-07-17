@@ -87,6 +87,13 @@ class _MyWidgetState extends State<MyWidget> implements FindableSource {
   searchable. A data-driven adapter for lazy lists is planned.
 - Match order follows widget build order, which for a normal page is
   top-to-bottom visual order.
+- `FindInPageScope` needs an `Overlay` ancestor for its built-in bar;
+  every `MaterialApp`/`CupertinoApp`/`WidgetsApp` provides one.
+- Navigation scrolls the widget containing the active match into view. In
+  a paragraph taller than the viewport the exact line may still be
+  offscreen; per-line precision is planned.
+- Matches clipped away by `maxLines`/`overflow` are counted and navigated
+  to, but cannot become visible.
 
 ## License
 

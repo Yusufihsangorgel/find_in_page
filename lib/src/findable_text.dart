@@ -8,15 +8,29 @@ import 'scope.dart';
 /// Registers itself with the enclosing [FindInPageScope]'s controller (or
 /// an explicitly passed [controller]) and renders highlights over matches
 /// of the current query. The active match gets [activeHighlightColor].
+///
+/// Supports the common `Text` parameters. Matches inside content clipped
+/// away by [maxLines]/[overflow] are still counted and navigated to, but
+/// cannot become visible.
 class FindableText extends StatefulWidget {
+  /// Creates searchable text.
   const FindableText(
     this.data, {
     super.key,
     this.controller,
     this.style,
+    this.strutStyle,
     this.textAlign,
-    this.maxLines,
+    this.textDirection,
+    this.locale,
+    this.softWrap,
     this.overflow,
+    this.textScaler,
+    this.maxLines,
+    this.semanticsLabel,
+    this.textWidthBasis,
+    this.textHeightBehavior,
+    this.selectionColor,
     this.highlightColor = const Color(0xFFFFF59D),
     this.activeHighlightColor = const Color(0xFFFFB74D),
   });
@@ -28,10 +42,44 @@ class FindableText extends StatefulWidget {
   /// nearest [FindInPageScope].
   final FindInPageController? controller;
 
+  /// See [Text.style].
   final TextStyle? style;
+
+  /// See [Text.strutStyle].
+  final StrutStyle? strutStyle;
+
+  /// See [Text.textAlign].
   final TextAlign? textAlign;
-  final int? maxLines;
+
+  /// See [Text.textDirection].
+  final TextDirection? textDirection;
+
+  /// See [Text.locale].
+  final Locale? locale;
+
+  /// See [Text.softWrap].
+  final bool? softWrap;
+
+  /// See [Text.overflow].
   final TextOverflow? overflow;
+
+  /// See [Text.textScaler].
+  final TextScaler? textScaler;
+
+  /// See [Text.maxLines].
+  final int? maxLines;
+
+  /// See [Text.semanticsLabel].
+  final String? semanticsLabel;
+
+  /// See [Text.textWidthBasis].
+  final TextWidthBasis? textWidthBasis;
+
+  /// See [Text.textHeightBehavior].
+  final TextHeightBehavior? textHeightBehavior;
+
+  /// See [Text.selectionColor].
+  final Color? selectionColor;
 
   /// Background color for inactive matches.
   final Color highlightColor;
@@ -86,15 +134,18 @@ class _FindableTextState extends State<FindableText> implements FindableSource {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    if (controller == null) return _plainText();
+    if (controller == null) return _text(widget.data);
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
         final matches = controller.matchesFor(this);
-        if (matches.isEmpty) return _plainText();
         final spans = <InlineSpan>[];
         var cursor = 0;
         for (final match in matches) {
+          // A text change invalidates offsets until the controller's
+          // deferred recompute runs after this frame; skip anything that
+          // no longer fits instead of crashing on substring.
+          if (match.end > widget.data.length) continue;
           if (match.start > cursor) {
             spans.add(
                 TextSpan(text: widget.data.substring(cursor, match.start)));
@@ -109,24 +160,43 @@ class _FindableTextState extends State<FindableText> implements FindableSource {
           ));
           cursor = match.end;
         }
+        if (spans.isEmpty) return _text(widget.data);
         if (cursor < widget.data.length) {
           spans.add(TextSpan(text: widget.data.substring(cursor)));
         }
         return Text.rich(
           TextSpan(style: widget.style, children: spans),
+          strutStyle: widget.strutStyle,
           textAlign: widget.textAlign,
-          maxLines: widget.maxLines,
+          textDirection: widget.textDirection,
+          locale: widget.locale,
+          softWrap: widget.softWrap,
           overflow: widget.overflow,
+          textScaler: widget.textScaler,
+          maxLines: widget.maxLines,
+          semanticsLabel: widget.semanticsLabel,
+          textWidthBasis: widget.textWidthBasis,
+          textHeightBehavior: widget.textHeightBehavior,
+          selectionColor: widget.selectionColor,
         );
       },
     );
   }
 
-  Text _plainText() => Text(
-        widget.data,
+  Text _text(String data) => Text(
+        data,
         style: widget.style,
+        strutStyle: widget.strutStyle,
         textAlign: widget.textAlign,
-        maxLines: widget.maxLines,
+        textDirection: widget.textDirection,
+        locale: widget.locale,
+        softWrap: widget.softWrap,
         overflow: widget.overflow,
+        textScaler: widget.textScaler,
+        maxLines: widget.maxLines,
+        semanticsLabel: widget.semanticsLabel,
+        textWidthBasis: widget.textWidthBasis,
+        textHeightBehavior: widget.textHeightBehavior,
+        selectionColor: widget.selectionColor,
       );
 }

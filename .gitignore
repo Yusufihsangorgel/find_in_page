@@ -2,3 +2,4 @@
 build/
 pubspec.lock
 .flutter-plugins*
+.idea/

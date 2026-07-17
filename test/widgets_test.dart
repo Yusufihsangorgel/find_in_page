@@ -179,6 +179,136 @@ void main() {
       expect(controller.query, isEmpty);
     });
 
+    testWidgets('bar is visible and tappable with a shrink-wrapped child',
+        (tester) async {
+      // Regression: with the old Stack overlay, a small child collapsed the
+      // bar to zero size, making it invisible and untappable.
+      final controller = FindInPageController();
+      await tester.pumpWidget(_app(
+        FindInPageScope(
+          controller: controller,
+          child: const FindableText('go go go'),
+        ),
+      ));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      final barSize = tester.getSize(find.byType(FindBar));
+      expect(barSize.height, greaterThan(30));
+      expect(barSize.width, greaterThan(150));
+
+      await tester.enterText(find.byType(TextField), 'go');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Next match'));
+      await tester.pump();
+      expect(controller.activeMatchIndex, 1);
+    });
+
+    testWidgets('shrinking a searched text does not crash', (tester) async {
+      // Regression: stale match offsets caused a substring RangeError on
+      // the frame between a text change and the deferred recompute.
+      final controller = FindInPageController();
+      Widget build(String text) => _app(
+            FindInPageScope(
+              controller: controller,
+              child: FindableText(text),
+            ),
+          );
+      await tester.pumpWidget(build('match and match'));
+      controller.search('match');
+      await tester.pump();
+      expect(controller.matchCount, 2);
+
+      await tester.pumpWidget(build('no'));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(controller.matchCount, 0);
+    });
+
+    testWidgets(
+        'showBar: false routes the shortcut to onOpenRequested and '
+        'Escape does not clear the search', (tester) async {
+      final controller = FindInPageController();
+      var opened = 0;
+      await tester.pumpWidget(_app(
+        FindInPageScope(
+          controller: controller,
+          showBar: false,
+          onOpenRequested: () => opened++,
+          child: const FindableText('needle'),
+        ),
+      ));
+      controller.search('needle');
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(opened, 1);
+      expect(find.byType(FindBar), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(controller.query, 'needle');
+    });
+
+    testWidgets('does not steal a user autofocus', (tester) async {
+      final focusNode = FocusNode();
+      await tester.pumpWidget(_app(
+        FindInPageScope(
+          child: Column(
+            children: [
+              TextField(focusNode: focusNode, autofocus: true),
+              const FindableText('content'),
+            ],
+          ),
+        ),
+      ));
+      await tester.pump();
+      expect(focusNode.hasFocus, isTrue);
+    });
+
+    testWidgets('bar fits a 360dp viewport without overflow', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = FindInPageController();
+      await tester.pumpWidget(_app(
+        FindInPageScope(
+          controller: controller,
+          child: ListView(children: const [FindableText('word word')]),
+        ),
+      ));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'word');
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.text('1/2'), findsOneWidget);
+    });
+
+    testWidgets('field reflects programmatic search when unfocused',
+        (tester) async {
+      final controller = FindInPageController();
+      await tester.pumpWidget(_app(
+        Column(
+          children: [
+            FindBar(controller: controller, autofocus: false),
+            FindableText('alpha beta', controller: controller),
+          ],
+        ),
+      ));
+      controller.search('alpha');
+      await tester.pump();
+      expect(find.widgetWithText(TextField, 'alpha'), findsOneWidget);
+    });
+
     testWidgets('bar buttons navigate and close', (tester) async {
       final controller = FindInPageController();
       var closed = false;
