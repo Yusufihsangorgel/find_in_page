@@ -12,6 +12,12 @@ topics:
   - text
   - widgets
 
+screenshots:
+  - description: >-
+      Typing a query highlights every match on the page; next/previous
+      jump between matches and scroll the active one into view.
+    path: doc/demo.gif
+
 environment:
   sdk: ^3.4.0
   flutter: ">=3.22.0"

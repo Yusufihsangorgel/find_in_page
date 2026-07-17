@@ -1,3 +1,5 @@
+![find_in_page](doc/banner.png)
+
 # find_in_page
 
 Ctrl+F for Flutter. Highlight search matches across your widgets, navigate
@@ -27,6 +29,10 @@ FindInPageScope(
 Press Ctrl+F (Cmd+F on macOS) to open the find bar; type to highlight
 every match; Enter or the arrow buttons move between matches, scrolling
 each one into view; Escape closes and clears.
+
+## Demo
+
+![demo](doc/demo.gif)
 
 ## Parts
 

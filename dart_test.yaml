@@ -1,0 +1,6 @@
+# The demo tag marks tests that capture frames for doc/demo.gif. They are
+# excluded from the regular suite; run them with:
+#
+#   flutter test --tags demo
+tags:
+  demo:
