@@ -1,44 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400">
-  <defs>
-    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
-      <circle cx="12" cy="12" r="1.5" fill="#E2E8F0" opacity="0.05"/>
-    </pattern>
-    <clipPath id="lens">
-      <circle cx="950" cy="165" r="78"/>
-    </clipPath>
-  </defs>
-
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" font-family="Menlo, monospace">
   <rect width="1200" height="400" fill="#0B1220"/>
-  <rect width="1200" height="400" fill="url(#dots)"/>
-
-  <!-- Motif: magnifier over highlighted text lines -->
-  <g stroke="#38BDF8" stroke-width="3" fill="none" stroke-linecap="round">
-    <!-- faint text lines on the page, broken around the lens -->
-    <g opacity="0.35">
-      <line x1="820" y1="105" x2="888" y2="105"/>
-      <line x1="1012" y1="105" x2="1085" y2="105"/>
-      <line x1="820" y1="225" x2="888" y2="225"/>
-      <line x1="1012" y1="225" x2="1085" y2="225"/>
-    </g>
-    <!-- text lines inside the lens -->
-    <g clip-path="url(#lens)">
-      <line x1="880" y1="135" x2="1020" y2="135"/>
-      <line x1="880" y1="195" x2="1020" y2="195"/>
-    </g>
-    <!-- the active match: filled highlight behind the middle line -->
-    <rect x="905" y="152" width="90" height="26" rx="6"
-          fill="#38BDF8" fill-opacity="0.25"/>
-    <line x1="880" y1="165" x2="898" y2="165"/>
-    <line x1="912" y1="165" x2="988" y2="165"/>
-    <line x1="1002" y1="165" x2="1020" y2="165"/>
-    <!-- lens and handle -->
-    <circle cx="950" cy="165" r="78"/>
-    <line x1="1006" y1="221" x2="1072" y2="287" stroke-width="7"/>
+  <g opacity="0.9" font-size="13">
+    <!-- arama kutusu -->
+    <rect x="790" y="140" width="200" height="34" rx="8" fill="#0E1A2E" stroke="#38BDF8"/>
+    <circle cx="808" cy="157" r="6" fill="none" stroke="#38BDF8" stroke-width="1.6"/><path d="M813 162 l6 6" stroke="#38BDF8" stroke-width="1.6"/>
+    <text x="826" y="162" fill="#94A3B8">flutter</text>
+    <text x="948" y="162" fill="#64748B">2/5</text>
+    <!-- metin + vurgular -->
+    <text x="790" y="210" fill="#334155">the</text>
+    <rect x="822" y="198" width="56" height="18" rx="3" fill="#38BDF8" opacity="0.35"/><text x="826" y="211" fill="#E2E8F0">flutter</text>
+    <text x="886" y="210" fill="#334155">way is fast; the</text>
+    <rect x="790" y="228" width="56" height="18" rx="3" fill="#38BDF8" opacity="0.7"/><text x="794" y="241" fill="#E2E8F0">flutter</text>
+    <text x="852" y="240" fill="#334155">engine renders it</text>
   </g>
-
-  <!-- Wordmark -->
-  <text x="64" y="300" font-family="Menlo, 'DejaVu Sans Mono', monospace"
-        font-size="64" font-weight="bold" fill="#E2E8F0">find_in_page</text>
-  <text x="64" y="344" font-family="Menlo, 'DejaVu Sans Mono', monospace"
-        font-size="24" fill="#94A3B8">Ctrl+F for Flutter widgets</text>
+  <text x="64" y="212" font-size="56" font-weight="bold" fill="#E2E8F0">find_in_page</text>
+  <text x="66" y="256" font-size="23" fill="#94A3B8">Ctrl+F for Flutter: highlight, navigate, scroll to</text>
 </svg>
