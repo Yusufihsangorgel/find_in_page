@@ -32,7 +32,7 @@ each one into view; Escape closes and clears.
 
 ## Demo
 
-![demo](doc/demo.gif)
+![demo](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/demo.gif)
 
 ## Parts
 

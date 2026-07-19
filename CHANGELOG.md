@@ -1,3 +1,9 @@
+## 0.1.2
+
+- Fix the demo GIF in the README, which used a relative path and did not render
+  on the pub.dev package page. It now uses the same absolute raw URL as the
+  banner.
+
 ## 0.1.1
 
 - Docs: tightened the README wording and visuals.
