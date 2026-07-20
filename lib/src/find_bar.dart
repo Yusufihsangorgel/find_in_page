@@ -19,6 +19,7 @@ class FindBar extends StatefulWidget {
     this.previousTooltip = 'Previous match',
     this.nextTooltip = 'Next match',
     this.closeTooltip = 'Close',
+    this.matchStatusLabel = _defaultMatchStatusLabel,
     super.key,
   });
 
@@ -42,6 +43,30 @@ class FindBar extends StatefulWidget {
 
   /// Tooltip for the close button.
   final String closeTooltip;
+
+  /// Builds what a screen reader announces when the match count changes,
+  /// from the active match index (zero-based, `-1` when there is none) and
+  /// the total.
+  ///
+  /// The counter beside the field is the whole feedback loop of a find bar:
+  /// a sighted user watches it move while typing. It is announced as a live
+  /// region so it reaches a screen reader too, since focus stays in the query
+  /// field and never lands on the counter itself. The visible `3/12` is left
+  /// out of the announcement because it reads badly aloud.
+  ///
+  /// Defaults to English, as the tooltips above do; pass a localized builder:
+  ///
+  /// ```dart
+  /// matchStatusLabel: (active, count) => count == 0
+  ///     ? l10n.noMatches
+  ///     : l10n.matchOf(active + 1, count),
+  /// ```
+  final String Function(int activeIndex, int matchCount) matchStatusLabel;
+
+  static String _defaultMatchStatusLabel(int activeIndex, int matchCount) =>
+      matchCount == 0
+          ? 'No matches'
+          : 'Match ${activeIndex + 1} of $matchCount';
 
   @override
   State<FindBar> createState() => _FindBarState();
@@ -134,9 +159,15 @@ class _FindBarState extends State<FindBar> {
                   }
                   final count = widget.controller.matchCount;
                   final active = widget.controller.activeMatchIndex;
-                  return Text(
-                    count == 0 ? '0/0' : '${active! + 1}/$count',
-                    style: theme.textTheme.bodySmall,
+                  return Semantics(
+                    liveRegion: true,
+                    label: widget.matchStatusLabel(active ?? -1, count),
+                    child: ExcludeSemantics(
+                      child: Text(
+                        count == 0 ? '0/0' : '${active! + 1}/$count',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
                   );
                 },
               ),

@@ -44,6 +44,28 @@ each one into view; Escape closes and clears.
 | `FindInPageController` | Query, matches, and navigation; drive it directly for custom UIs |
 | `FindableSource` | Interface to make any custom widget searchable |
 
+## Screen readers
+
+The match counter is the whole feedback loop of a find bar: you type, and the
+`1/3` beside the field tells you whether that query found anything and where
+you are in it. Focus stays in the query field, so a screen reader never lands
+on that counter and the loop is silent.
+
+`FindBar` announces it as a live region instead, saying "Match 1 of 3" or "No
+matches" whenever the count or the active match changes, while the terse `1/3`
+is kept out of the announcement because it reads badly aloud. The button
+tooltips already carried labels.
+
+Both default to English, like the tooltips; pass a localized builder:
+
+```dart
+FindBar(
+  controller: controller,
+  matchStatusLabel: (active, count) =>
+      count == 0 ? l10n.noMatches : l10n.matchOf(active + 1, count),
+)
+```
+
 ## Custom UI
 
 The scope's built-in bar is optional. Drive everything yourself:
