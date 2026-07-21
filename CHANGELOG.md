@@ -1,3 +1,23 @@
+## 0.3.0
+
+- Add `FindableListView`, a `ListView.builder` whose whole backing list is
+  searchable, not just the items currently built. Plain `ListView.builder` +
+  `FindableText` only ever registers the handful of items in the build/cache
+  area; scrolling registers and unregisters items as they build and dispose,
+  so `matchCount` drifts mid-session and anything scrolled past is missed
+  entirely. `FindableListView` reads each item's text straight from the
+  backing data up front, so the full list counts toward `matchCount`
+  regardless of what is built, and scrolling does not change it. Revealing a
+  match animates a `ScrollController` to the item's index instead of
+  `Scrollable.ensureVisible`, since an off-screen item has no live widget;
+  see the class docs for the itemExtent requirement this implies.
+- Add `FindableRecord`, the `FindableSource` used by `FindableListView`:
+  text supplied directly instead of read from a live widget, with no
+  `findableContext`.
+- Add an optional `reveal` callback to `FindInPageController.register`, for
+  sources that cannot provide a live `findableContext`. Non-breaking:
+  existing `register(source)` calls are unaffected.
+
 ## 0.2.0
 
 - The match counter is now announced to screen readers. It is the find bar's

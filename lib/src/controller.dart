@@ -42,6 +42,7 @@ class FindInPageController extends ChangeNotifier {
   final List<FindableSource> _sources = [];
   final List<FindMatch> _matches = [];
   final Map<FindableSource, List<FindMatch>> _matchesBySource = {};
+  final Map<FindableSource, VoidCallback> _reveals = {};
   String _query = '';
   bool _caseSensitive = false;
   int? _activeIndex;
@@ -97,14 +98,23 @@ class FindInPageController extends ChangeNotifier {
   ///
   /// Safe to call during build; match recomputation is deferred to after
   /// the current frame.
-  void register(FindableSource source) {
+  ///
+  /// Pass [reveal] when [source] cannot provide a live `findableContext`
+  /// (for example, a lazy list item that is not built yet). It is called
+  /// instead of `Scrollable.ensureVisible` when one of [source]'s matches
+  /// becomes active, and is responsible for bringing the source into view
+  /// itself, typically by animating a `ScrollController`.
+  /// `FindableListView` uses this to make off-screen items reachable.
+  void register(FindableSource source, {VoidCallback? reveal}) {
     if (_sources.contains(source)) return;
     _sources.add(source);
+    if (reveal != null) _reveals[source] = reveal;
     if (_query.isNotEmpty) _scheduleRecompute();
   }
 
   /// Removes [source] from the search domain.
   void unregister(FindableSource source) {
+    _reveals.remove(source);
     if (_sources.remove(source) && _query.isNotEmpty) _scheduleRecompute();
   }
 
@@ -167,6 +177,11 @@ class FindInPageController extends ChangeNotifier {
     // After the frame, so freshly rebuilt highlights are attached.
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (_disposed) return;
+      final reveal = _reveals[match.source];
+      if (reveal != null) {
+        reveal();
+        return;
+      }
       final context = match.source.findableContext;
       if (context == null || !context.mounted) return;
       Scrollable.ensureVisible(

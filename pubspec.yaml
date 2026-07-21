@@ -2,7 +2,7 @@ name: find_in_page
 description: >-
   Ctrl+F for Flutter: a find-in-page bar that highlights every match across your
   widgets, jumps between them, and scrolls the active match into view.
-version: 0.2.0
+version: 0.3.0
 repository: https://github.com/Yusufihsangorgel/find_in_page
 issue_tracker: https://github.com/Yusufihsangorgel/find_in_page/issues
 

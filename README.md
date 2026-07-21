@@ -43,6 +43,8 @@ each one into view; Escape closes and clears.
 | `FindBar` | The search bar widget, usable standalone for custom placement |
 | `FindInPageController` | Query, matches, and navigation; drive it directly for custom UIs |
 | `FindableSource` | Interface to make any custom widget searchable |
+| `FindableListView` | `ListView.builder` adapter that makes the whole backing list searchable, including items that are not built |
+| `FindableRecord` | `FindableSource` with text supplied directly instead of read from a live widget |
 
 ## Screen readers
 
@@ -105,14 +107,56 @@ class _MyWidgetState extends State<MyWidget> implements FindableSource {
 }
 ```
 
+## Searching a lazy list
+
+`FindableText` only registers while it is built. In a `ListView.builder`
+that means only the handful of items in the build/cache area are
+searchable; scrolling builds and disposes items, which registers and
+unregisters them and makes `matchCount` drift mid-session, and anything
+scrolled past without being built is simply missed.
+
+`FindableListView` fixes this by reading each item's text straight from
+the backing list up front, so the whole list is searched regardless of
+what is built:
+
+```dart
+FindInPageScope(
+  child: FindableListView(
+    itemCount: items.length,
+    itemExtent: 56,
+    findableTextOf: (index) => items[index],
+    itemBuilder: (context, index, matches, activeMatchIndex) => ListTile(
+      title: Text(items[index]),
+    ),
+  ),
+)
+```
+
+`matches` are that item's matches of the current query (empty when there
+are none); `activeMatchIndex` is which one of them is active, or null.
+Rendering the highlight from those offsets is the builder's job, the same
+way a plain `ListView.builder`'s `itemBuilder` owns the whole item.
+
+Because an off-screen match has no live widget, revealing it cannot call
+`Scrollable.ensureVisible`; `FindableListView` instead animates a
+`ScrollController` to `index * itemExtent`, which is why `itemExtent` is
+required. That means every item must be the same height (or width, for a
+horizontal list) - the same constraint `ListView.builder(itemExtent: ...)`
+already has. Variable height items are not supported.
+
+`FindableRecord` is the plain `FindableSource` behind this: text supplied
+directly, with no `findableContext`. Register one yourself with
+`FindInPageController.register(record, reveal: ...)` for other data-driven
+cases; `reveal` runs instead of `Scrollable.ensureVisible` when one of its
+matches becomes active.
+
 ## Limits
 
 - Matching is plain text and case insensitive by default
   (`search(query, caseSensitive: true)` for exact case). Regex is planned.
-- Lazily built list items (`ListView.builder`) that have not been built
-  yet are not part of the search domain. Content inside
-  `SingleChildScrollView`, `Column`, and other built trees is fully
-  searchable. A data-driven adapter for lazy lists is planned.
+- `FindableListView` requires a fixed `itemExtent` and does not render
+  highlights itself (see above); it is a data-driven complement to
+  `FindableText`, not a drop-in replacement.
 - Match order follows widget build order, which for a normal page is
   top-to-bottom visual order.
 - `FindInPageScope` needs an `Overlay` ancestor for its built-in bar;
