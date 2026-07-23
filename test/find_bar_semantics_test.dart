@@ -121,8 +121,9 @@ void main() {
         bar: FindBar(
           controller: controller,
           autofocus: false,
-          matchStatusLabel: (active, count) =>
-              count == 0 ? 'Eşleşme yok' : '${active + 1}. eşleşme, $count adet',
+          matchStatusLabel: (active, count) => count == 0
+              ? 'Eşleşme yok'
+              : '${active + 1}. eşleşme, $count adet',
         ),
       ),
     );
