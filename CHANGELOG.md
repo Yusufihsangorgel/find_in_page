@@ -1,3 +1,23 @@
+## 1.0.0
+
+The API is stable. No behaviour changes; this freezes the surface after an
+adversarial pass that drove the controller directly rather than reading it, and
+pins what it found as tests.
+
+Verified by execution and now covered by `test/controller_contract_test.dart`:
+case sensitivity is opt-in and sticky across searches; matches never overlap;
+the offsets a match reports index the text you supplied, not the folded copy the
+case-insensitive search compares against, so a match after an emoji still slices
+correctly; an empty or unmatchable query clears the session and the active index
+with it; `next` and `previous` wrap in both directions; the active index never
+goes stale when a source's text changes and its matches disappear; and
+unregistering a source drops its matches.
+
+`FindBar`, `FindInPageScope`, `FindableText`, `FindableListView`, `FindMatch`,
+`FindableRecord` and `FindInPageController` are `final`; `FindableSource` stays
+an `abstract interface` because implementing it is how you add your own source.
+Flutter is the only dependency.
+
 ## 0.5.1
 
 - Add `example/README.md` for pub.dev's Example tab. It describes both halves of
