@@ -1,3 +1,10 @@
+## 0.5.1
+
+- Add `example/README.md` for pub.dev's Example tab. It describes both halves of
+  the demo — eager `FindableText` content and a 2,000-row `FindableListView`
+  where every row is searchable though only the visible ones are built — with
+  the demo gif and the accurate `FindableListView` snippet. Docs only.
+
 ## 0.5.0
 
 - Seal the four widget classes: `FindBar`, `FindInPageScope`, `FindableText`
