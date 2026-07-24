@@ -1,3 +1,16 @@
+## 0.5.0
+
+- Seal the four widget classes: `FindBar`, `FindInPageScope`, `FindableText`
+  and `FindableListView` are now `final`. The 0.4.0 note said the controller
+  was the last open type; that was wrong — these four were still open. None is
+  meant to be subtyped, nothing in the package, its tests or its example
+  extends any of them, and freezing them open would make every future added
+  parameter a breaking change for an implementer. `FindMatch`, `FindableRecord`
+  and `FindInPageController` were already `final`; `FindableSource` stays an
+  `abstract interface` for callers to implement. That completes the modifier
+  decision across the public surface, so nothing is left open by accident at a
+  1.0.0 freeze. No behaviour change.
+
 ## 0.4.0
 
 - Mark `FindInPageController` as `final`, ahead of a 1.0.0 freeze. It was the

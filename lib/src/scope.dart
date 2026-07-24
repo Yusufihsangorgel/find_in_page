@@ -18,7 +18,7 @@ import 'find_bar.dart';
 ///
 /// For a custom find UI, pass [showBar]: false and either handle
 /// [onOpenRequested] or drive the controller directly.
-class FindInPageScope extends StatefulWidget {
+final class FindInPageScope extends StatefulWidget {
   /// Creates a scope that makes descendant `FindableText` widgets
   /// searchable.
   const FindInPageScope({

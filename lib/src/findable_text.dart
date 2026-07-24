@@ -12,7 +12,7 @@ import 'scope.dart';
 /// Supports the common `Text` parameters. Matches inside content clipped
 /// away by [maxLines]/[overflow] are still counted and navigated to, but
 /// cannot become visible.
-class FindableText extends StatefulWidget {
+final class FindableText extends StatefulWidget {
   /// Creates searchable text.
   const FindableText(
     this.data, {

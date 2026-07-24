@@ -62,7 +62,7 @@ typedef FindableListItemBuilder = Widget Function(
 ///   gets the match offsets and renders them, since it already owns the
 ///   item's layout. There is no `FindableText`-style automatic span
 ///   rendering here.
-class FindableListView extends StatefulWidget {
+final class FindableListView extends StatefulWidget {
   /// Creates a searchable lazy list.
   const FindableListView({
     required this.itemCount,

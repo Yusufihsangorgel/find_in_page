@@ -9,7 +9,7 @@ import 'controller.dart';
 ///
 /// Used by `FindInPageScope` out of the box; embed it yourself for custom
 /// placement.
-class FindBar extends StatefulWidget {
+final class FindBar extends StatefulWidget {
   /// Creates a find bar driving [controller].
   const FindBar({
     required this.controller,
