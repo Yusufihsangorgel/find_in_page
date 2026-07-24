@@ -35,7 +35,7 @@ abstract interface class FindableSource {
 ///
 /// Sources register themselves in build order, which for a typical page is
 /// top-to-bottom visual order; matches and navigation follow that order.
-class FindInPageController extends ChangeNotifier {
+final class FindInPageController extends ChangeNotifier {
   /// Creates a controller with no active search.
   FindInPageController();
 

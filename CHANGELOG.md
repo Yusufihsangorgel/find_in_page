@@ -1,3 +1,15 @@
+## 0.4.0
+
+- Mark `FindInPageController` as `final`, ahead of a 1.0.0 freeze. It was the
+  one type in the package still open: `FindMatch` and `FindableRecord` are
+  already `final` and `FindableSource` is an `abstract interface` for callers
+  to implement. The controller is a plain, zero-dependency object that nothing
+  in the package, its tests or its example subtypes, and the regex support the
+  README plans will add members to exactly this class — additions that would
+  otherwise break anyone who had implemented it. Sealing after 1.0.0 would take
+  a major version; unsealing later would not. Fake it in a test by
+  constructing a real one rather than implementing it. No behaviour change.
+
 ## 0.3.0
 
 - Add `FindableListView`, a `ListView.builder` whose whole backing list is
