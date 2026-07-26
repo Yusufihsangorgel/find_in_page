@@ -1,3 +1,57 @@
+## 2.0.0
+
+**Wrap your page and it works.** Until now every string had to be wrapped in a
+`FindableText` to be searchable, and a page that was not wrapped reported `0/0`
+with no error and no hint. That is the first thing a new user saw, and it looked
+like the package was broken. On a realistic page with an `AppBar` title, a
+`Text.rich`, a `SelectableText`, a `ListTile` and a `DataTable` cell, all five
+occurrences of the search term were missed.
+
+`FindInPageScope` now finds the text rendered inside it, whether or not you
+wrapped it, including text inside widgets you did not write. The same page now
+reports 5 of 5. The integration is one widget:
+
+```dart
+FindInPageScope(child: MyPage())
+```
+
+Matches in discovered text are highlighted by an overlay painted on top, in the
+yellow and orange a browser uses, since restyling a widget we do not own is not
+possible. `FindableText` still highlights inline by restyling its own spans, and
+the two compose; so does `FindableListView`, which remains the way to reach rows
+of a lazy list that were never built.
+
+### Breaking
+
+- A scope that previously found nothing now finds the text on the page, so
+  `matchCount` changes for anyone who was not wrapping their content. Pass
+  `FindInPageScope(autoDiscover: false)` for the old behaviour.
+
+### New
+
+- `ExcludeFromFind`, which keeps a subtree out of the search. Use it for
+  navigation, footers and debug banners, and inside custom widgets that report
+  their own text.
+- `FindInPageScope.highlightColor` and `activeHighlightColor`.
+- `RenderedTextSource` and its two variants are exported, so a custom find UI
+  can ask a discovered match for its rectangles.
+
+### Deliberately not searched
+
+- Editable fields. A browser's find bar does not match inside `<input>` values
+  either; an editable field is a control, not content. `SelectableText` is
+  read-only and is searched.
+- Obscured fields, so a password is never matched.
+- Icons. Flutter draws them as glyphs inside a paragraph, so a naive sweep
+  registers every chevron as a one-character searchable string. Text made only
+  of Private Use Area characters is filtered out.
+
+### Also
+
+- The README now says plainly, above the fold, that this does not fix the
+  browser's own Ctrl+F and that nothing written in Dart can. That limit was
+  true before and was not stated anywhere.
+
 ## 1.0.0
 
 The API is stable. No behaviour changes; this freezes the surface after an

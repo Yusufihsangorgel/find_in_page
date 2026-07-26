@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'controller.dart';
+import 'exclude_from_find.dart';
 import 'scope.dart';
 
 /// A `Text` replacement whose content participates in find-in-page.
@@ -134,52 +135,58 @@ class _FindableTextState extends State<FindableText> implements FindableSource {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    if (controller == null) return _text(widget.data);
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        final matches = controller.matchesFor(this);
-        final spans = <InlineSpan>[];
-        var cursor = 0;
-        for (final match in matches) {
-          // A text change invalidates offsets until the controller's
-          // deferred recompute runs after this frame; skip anything that
-          // no longer fits instead of crashing on substring.
-          if (match.end > widget.data.length) continue;
-          if (match.start > cursor) {
-            spans.add(
-                TextSpan(text: widget.data.substring(cursor, match.start)));
+    // This widget reports its own text to the controller and highlights it by
+    // restyling its own spans, so automatic discovery must not read it again.
+    if (controller == null) {
+      return ExcludeFromFind(child: _text(widget.data));
+    }
+    return ExcludeFromFind(
+      child: ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) {
+          final matches = controller.matchesFor(this);
+          final spans = <InlineSpan>[];
+          var cursor = 0;
+          for (final match in matches) {
+            // A text change invalidates offsets until the controller's
+            // deferred recompute runs after this frame; skip anything that
+            // no longer fits instead of crashing on substring.
+            if (match.end > widget.data.length) continue;
+            if (match.start > cursor) {
+              spans.add(
+                  TextSpan(text: widget.data.substring(cursor, match.start)));
+            }
+            spans.add(TextSpan(
+              text: widget.data.substring(match.start, match.end),
+              style: TextStyle(
+                backgroundColor: controller.isActive(match)
+                    ? widget.activeHighlightColor
+                    : widget.highlightColor,
+              ),
+            ));
+            cursor = match.end;
           }
-          spans.add(TextSpan(
-            text: widget.data.substring(match.start, match.end),
-            style: TextStyle(
-              backgroundColor: controller.isActive(match)
-                  ? widget.activeHighlightColor
-                  : widget.highlightColor,
-            ),
-          ));
-          cursor = match.end;
-        }
-        if (spans.isEmpty) return _text(widget.data);
-        if (cursor < widget.data.length) {
-          spans.add(TextSpan(text: widget.data.substring(cursor)));
-        }
-        return Text.rich(
-          TextSpan(style: widget.style, children: spans),
-          strutStyle: widget.strutStyle,
-          textAlign: widget.textAlign,
-          textDirection: widget.textDirection,
-          locale: widget.locale,
-          softWrap: widget.softWrap,
-          overflow: widget.overflow,
-          textScaler: widget.textScaler,
-          maxLines: widget.maxLines,
-          semanticsLabel: widget.semanticsLabel,
-          textWidthBasis: widget.textWidthBasis,
-          textHeightBehavior: widget.textHeightBehavior,
-          selectionColor: widget.selectionColor,
-        );
-      },
+          if (spans.isEmpty) return _text(widget.data);
+          if (cursor < widget.data.length) {
+            spans.add(TextSpan(text: widget.data.substring(cursor)));
+          }
+          return Text.rich(
+            TextSpan(style: widget.style, children: spans),
+            strutStyle: widget.strutStyle,
+            textAlign: widget.textAlign,
+            textDirection: widget.textDirection,
+            locale: widget.locale,
+            softWrap: widget.softWrap,
+            overflow: widget.overflow,
+            textScaler: widget.textScaler,
+            maxLines: widget.maxLines,
+            semanticsLabel: widget.semanticsLabel,
+            textWidthBasis: widget.textWidthBasis,
+            textHeightBehavior: widget.textHeightBehavior,
+            selectionColor: widget.selectionColor,
+          );
+        },
+      ),
     );
   }
 

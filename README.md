@@ -2,33 +2,56 @@
 
 # find_in_page
 
-Ctrl+F for Flutter. Highlight search matches across your widgets, navigate
-between them, and scroll the active match into view.
-
-Flutter has no built-in find-in-page ([flutter#65504]). This package adds
-one with an opt-in model: wrap the page in a scope, use `FindableText`
-where content should be searchable, and the browser-style find bar works.
-
-[flutter#65504]: https://github.com/flutter/flutter/issues/65504
+An in-app find bar for Flutter. Wrap your page in one widget and Ctrl+F
+searches the text that is already there.
 
 ```dart
 import 'package:find_in_page/find_in_page.dart';
 
-FindInPageScope(
-  child: SingleChildScrollView(
-    child: Column(
-      children: [
-        FindableText('Long article text...'),
-        FindableText('More paragraphs...'),
-      ],
-    ),
-  ),
-)
+FindInPageScope(child: MyPage())
 ```
 
-Press Ctrl+F (Cmd+F on macOS) to open the find bar; type to highlight
-every match; Enter or the arrow buttons move between matches, scrolling
-each one into view; Escape closes and clears.
+That is the whole integration. Text inside `Text`, `Text.rich`,
+`SelectableText`, and widgets you did not write such as `AppBar`, `ListTile`
+and `DataTable` is all searchable without being wrapped or changed.
+
+Press Ctrl+F (Cmd+F on macOS) to open the bar; type to highlight every match;
+Enter or the arrow buttons move between them and scroll each into view; Escape
+closes and clears.
+
+## Read this before you install
+
+**This does not fix the browser's own Ctrl+F, and nothing written in Dart can.**
+On Flutter web with the default CanvasKit renderer your text is painted into a
+canvas, so the browser's find bar, the browser's reader mode, and a crawler
+looking for a phrase all still see nothing. Flutter has tracked that since 2020
+in [flutter#65504] and it is not solved here.
+
+What this package gives you is an in-app find bar that behaves like the
+browser's one, on every platform Flutter runs on. If what you need is for
+`Ctrl+F` in Chrome to find your contact address, this is the wrong tool and you
+want the HTML renderer or a prerendered page instead.
+
+[flutter#65504]: https://github.com/flutter/flutter/issues/65504
+
+## What is searchable
+
+| | |
+|---|---|
+| `Text`, `Text.rich`, `SelectableText` | Yes, automatically |
+| Text inside widgets you do not own | Yes, automatically |
+| Rows of a `ListView.builder` that were never built | Yes, via `FindableListView` |
+| `TextField` and other editable fields | No, deliberately. A browser does not match inside `<input>` either |
+| Icons | No. Flutter draws them as font glyphs; they are filtered out |
+| A collapsed `ExpansionTile`, an unselected tab | No. It is not rendered, so there is nothing to find |
+
+Two escape hatches:
+
+* `ExcludeFromFind(child: ...)` keeps a subtree out, which is what you want for
+  a navigation rail or a footer.
+* `FindInPageScope(autoDiscover: false, ...)` turns discovery off entirely and
+  searches only what registered itself, which is how versions before 2.0.0
+  behaved.
 
 ## Demo
 

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'controller.dart';
+import 'exclude_from_find.dart';
 import 'findable_record.dart';
 import 'scope.dart';
 
@@ -227,34 +228,38 @@ class _FindableListViewState extends State<FindableListView> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    return ListView.builder(
-      controller: _scrollController,
-      itemCount: widget.itemCount,
-      itemExtent: widget.itemExtent,
-      padding: widget.padding,
-      scrollDirection: widget.scrollDirection,
-      reverse: widget.reverse,
-      physics: widget.physics,
-      itemBuilder: (context, index) {
-        if (controller == null) {
-          return widget.itemBuilder(context, index, const [], null);
-        }
-        return ListenableBuilder(
-          listenable: controller,
-          builder: (context, _) {
-            final matches = controller.matchesFor(_records[index]);
-            int? activeMatchIndex;
-            for (var i = 0; i < matches.length; i++) {
-              if (controller.isActive(matches[i])) {
-                activeMatchIndex = i;
-                break;
+    // Every row's text is registered up front, built or not, so discovery must
+    // not also read the rows that happen to be on screen.
+    return ExcludeFromFind(
+      child: ListView.builder(
+        controller: _scrollController,
+        itemCount: widget.itemCount,
+        itemExtent: widget.itemExtent,
+        padding: widget.padding,
+        scrollDirection: widget.scrollDirection,
+        reverse: widget.reverse,
+        physics: widget.physics,
+        itemBuilder: (context, index) {
+          if (controller == null) {
+            return widget.itemBuilder(context, index, const [], null);
+          }
+          return ListenableBuilder(
+            listenable: controller,
+            builder: (context, _) {
+              final matches = controller.matchesFor(_records[index]);
+              int? activeMatchIndex;
+              for (var i = 0; i < matches.length; i++) {
+                if (controller.isActive(matches[i])) {
+                  activeMatchIndex = i;
+                  break;
+                }
               }
-            }
-            return widget.itemBuilder(
-                context, index, matches, activeMatchIndex);
-          },
-        );
-      },
+              return widget.itemBuilder(
+                  context, index, matches, activeMatchIndex);
+            },
+          );
+        },
+      ),
     );
   }
 }

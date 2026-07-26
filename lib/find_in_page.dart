@@ -7,6 +7,9 @@ library;
 
 export 'src/controller.dart'
     show FindInPageController, FindMatch, FindableSource;
+export 'src/auto_discovery.dart'
+    show ParagraphSource, ReadOnlyEditableSource, RenderedTextSource;
+export 'src/exclude_from_find.dart' show ExcludeFromFind;
 export 'src/find_bar.dart' show FindBar;
 export 'src/findable_list_view.dart'
     show FindableListView, FindableListItemBuilder;

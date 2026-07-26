@@ -42,33 +42,43 @@ class _ExampleHomeState extends State<_ExampleHome> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('find_in_page example'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Center(
-              child: TextButton(
-                onPressed: () => setState(() => _lazyList = !_lazyList),
-                child: Text(_lazyList ? 'Show short page' : 'Show lazy list'),
+    // The scope wraps the whole Scaffold, not just the body, so the AppBar
+    // title is searchable too. Nothing in the AppBar was written for this
+    // package; the scope reads the text Flutter renders inside it.
+    return FindInPageScope(
+      // A fresh scope per mode, so switching does not carry over the
+      // other mode's matches.
+      key: ValueKey(_lazyList),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('find_in_page example'),
+          actions: [
+            // Chrome, not content. Without this, searching "list" would match
+            // the button you are about to press.
+            ExcludeFromFind(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Center(
+                  child: TextButton(
+                    onPressed: () => setState(() => _lazyList = !_lazyList),
+                    child:
+                        Text(_lazyList ? 'Show short page' : 'Show lazy list'),
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-      body: FindInPageScope(
-        // A fresh scope per mode, so switching does not carry over the
-        // other mode's matches.
-        key: ValueKey(_lazyList),
-        child: _lazyList ? const _LazyListDemo() : const _ShortPageDemo(),
+          ],
+        ),
+        body: _lazyList ? const _LazyListDemo() : const _ShortPageDemo(),
       ),
     );
   }
 }
 
-/// Short, eager content: everything is built at once, so plain
-/// `FindableText` already searches all of it.
+/// Short, eager content. The intro is an ordinary `Text` that knows nothing
+/// about this package and is searchable anyway; the paragraphs below it use
+/// `FindableText`, which highlights by restyling its own spans instead of by
+/// an overlay drawn on top.
 class _ShortPageDemo extends StatelessWidget {
   const _ShortPageDemo();
 
@@ -77,6 +87,15 @@ class _ShortPageDemo extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 16),
+          child: Text(
+            'This intro is a plain Text widget. So is the title in the app '
+            'bar. Press Ctrl+F and search for "plain" or for "example" to '
+            'see both highlighted without either one being wrapped.',
+            style: TextStyle(fontStyle: FontStyle.italic),
+          ),
+        ),
         for (var i = 0; i < 12; i++)
           Padding(
             padding: const EdgeInsets.only(bottom: 16),

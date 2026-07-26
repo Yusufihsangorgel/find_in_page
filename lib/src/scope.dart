@@ -2,13 +2,31 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'auto_discovery.dart';
 import 'controller.dart';
 import 'find_bar.dart';
+import 'highlight_overlay.dart';
 
-/// Wires find-in-page into a subtree: provides a [FindInPageController]
-/// to descendant `FindableText` widgets, opens a [FindBar] on the
-/// platform find shortcut (Cmd+F on macOS and iOS, Ctrl+F elsewhere),
-/// and closes it on Escape.
+/// Wires find-in-page into a subtree: searches the text rendered inside it,
+/// opens a [FindBar] on the platform find shortcut (Cmd+F on macOS and iOS,
+/// Ctrl+F elsewhere), and closes it on Escape.
+///
+/// By default the scope finds text on its own. Every string Flutter draws is
+/// searchable whether or not you wrapped it, including text inside widgets you
+/// do not own such as `AppBar`, `ListTile` and `DataTable`. Wrap your page and
+/// it works.
+///
+/// Two things automatic discovery cannot see, both by construction:
+///
+/// * Rows of a lazy list that have never been built, because they do not
+///   exist. Use `FindableListView` for those; it and discovery compose.
+/// * Text that is not on screen at all, such as a collapsed `ExpansionTile`'s
+///   children or an unselected tab.
+///
+/// Wrapping text in `FindableText` is still supported and still useful: it
+/// highlights inline by restyling the text itself, while discovered text is
+/// highlighted by an overlay drawn on top. Set [autoDiscover] to false to go
+/// back to registered sources only.
 ///
 /// The shortcut is registered globally while the scope is mounted, so it
 /// works no matter where keyboard focus is; it never takes or moves focus
@@ -18,6 +36,12 @@ import 'find_bar.dart';
 ///
 /// For a custom find UI, pass [showBar]: false and either handle
 /// [onOpenRequested] or drive the controller directly.
+/// Translucent yellow, the colour browsers paint behind find matches.
+const Color _matchFill = Color(0x80FFEB3B);
+
+/// Translucent orange, the colour browsers paint behind the active match.
+const Color _activeMatchFill = Color(0xB3FF9800);
+
 final class FindInPageScope extends StatefulWidget {
   /// Creates a scope that makes descendant `FindableText` widgets
   /// searchable.
@@ -27,6 +51,9 @@ final class FindInPageScope extends StatefulWidget {
     this.showBar = true,
     this.onOpenRequested,
     this.barAlignment = AlignmentDirectional.topEnd,
+    this.autoDiscover = true,
+    this.highlightColor,
+    this.activeHighlightColor,
     super.key,
   });
 
@@ -48,6 +75,24 @@ final class FindInPageScope extends StatefulWidget {
   /// the ambient text direction.
   final AlignmentGeometry barAlignment;
 
+  /// Whether text that was never wrapped is searched too. Defaults to true.
+  ///
+  /// Turn it off to search only sources that registered themselves, which is
+  /// what versions before 2.0.0 did.
+  final bool autoDiscover;
+
+  /// Fill painted behind non-active matches found by discovery.
+  ///
+  /// Defaults to translucent yellow, which is what Chrome and Firefox use, so
+  /// the highlight reads as find-in-page rather than as selection. Matches
+  /// inside a `FindableText` are styled by that widget instead and ignore this.
+  final Color? highlightColor;
+
+  /// Fill painted behind the active match found by discovery.
+  ///
+  /// Defaults to translucent orange, again matching the browsers.
+  final Color? activeHighlightColor;
+
   /// The controller of the nearest enclosing scope, or null.
   static FindInPageController? maybeOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_FindInPageInherited>()
@@ -68,6 +113,8 @@ final class FindInPageScope extends StatefulWidget {
 class _FindInPageScopeState extends State<FindInPageScope> {
   FindInPageController? _ownedController;
   final OverlayPortalController _portal = OverlayPortalController();
+  final GlobalKey _subtreeKey = GlobalKey();
+  List<RenderedTextSource> _lastSweep = const [];
   bool _barVisible = false;
 
   FindInPageController get _controller =>
@@ -77,11 +124,40 @@ class _FindInPageScopeState extends State<FindInPageScope> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
+    _installDiscovery();
+  }
+
+  @override
+  void didUpdateWidget(FindInPageScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.autoDiscover != widget.autoDiscover) {
+      oldWidget.controller?.setDiscovery(null);
+      _installDiscovery();
+    }
+  }
+
+  void _installDiscovery() {
+    _controller.setDiscovery(widget.autoDiscover ? _sweep : null);
+  }
+
+  /// Reads the text currently rendered inside [FindInPageScope.child].
+  ///
+  /// Runs after layout, from the controller's recompute, so it reports what is
+  /// actually on screen. Starts at the searched subtree rather than at this
+  /// state's own element, which keeps the find bar's own query text out of the
+  /// results.
+  List<FindableSource> _sweep() {
+    final root = _subtreeKey.currentContext?.findRenderObject();
+    if (root == null) return const [];
+    _lastSweep = discoverTextSources(root, previous: _lastSweep);
+    return _lastSweep;
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKeyEvent);
+    widget.controller?.setDiscovery(null);
     _ownedController?.dispose();
     super.dispose();
   }
@@ -141,7 +217,12 @@ class _FindInPageScopeState extends State<FindInPageScope> {
             ),
           ),
         ),
-        child: widget.child,
+        child: HighlightOverlay(
+          controller: _controller,
+          color: widget.highlightColor ?? _matchFill,
+          activeColor: widget.activeHighlightColor ?? _activeMatchFill,
+          child: KeyedSubtree(key: _subtreeKey, child: widget.child),
+        ),
       ),
     );
   }

@@ -1,9 +1,26 @@
 # find_in_page example
 
-The example app in `lib/main.dart` shows both halves of the package under one
-`FindInPageScope`: eager content, where a plain `FindableText` already searches
-everything on screen, and a lazy 2,000-row list, where `FindableListView` makes
-every row searchable even though only the visible handful is built.
+The example app in `lib/main.dart` shows all three ways text becomes searchable
+under one `FindInPageScope`:
+
+1. **Nothing at all.** The `AppBar` title and the intro paragraph are ordinary
+   `Text` widgets that know nothing about this package, and both are searchable
+   because the scope reads the text rendered inside it. Search for `plain` or
+   `example` to see it. This is the whole integration for most pages:
+
+   ```dart
+   FindInPageScope(child: MyPage())
+   ```
+
+2. **`FindableText`**, when you want the match highlighted by restyling the text
+   itself rather than by an overlay drawn on top of it.
+
+3. **`FindableListView`**, for a lazy 2,000-row list, where rows that were never
+   built have no rendered text to discover.
+
+The toggle button in the app bar is wrapped in `ExcludeFromFind`, because it is
+chrome rather than content: without it, searching `list` would match the button
+you are about to press.
 
 ![The example app: searching text and jumping to matches across a long list](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/demo.gif)
 

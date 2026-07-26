@@ -1,6 +1,8 @@
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import 'auto_discovery.dart';
+
 /// A single occurrence of the query inside a registered source.
 @immutable
 final class FindMatch {
@@ -43,6 +45,8 @@ final class FindInPageController extends ChangeNotifier {
   final List<FindMatch> _matches = [];
   final Map<FindableSource, List<FindMatch>> _matchesBySource = {};
   final Map<FindableSource, VoidCallback> _reveals = {};
+  List<FindableSource> Function()? _discover;
+  List<FindableSource> _discovered = const [];
   String _query = '';
   bool _caseSensitive = false;
   int? _activeIndex;
@@ -112,6 +116,33 @@ final class FindInPageController extends ChangeNotifier {
     if (_query.isNotEmpty) _scheduleRecompute();
   }
 
+  /// Installs the sweep that finds text nobody wrapped.
+  ///
+  /// `FindInPageScope` sets this to a walk of its own subtree. The callback
+  /// runs at recompute time, which is after layout, so what it reports is what
+  /// is on screen right now. Passing null turns automatic discovery off and
+  /// leaves only explicitly registered sources, which is what
+  /// `FindInPageScope(autoDiscover: false)` does.
+  ///
+  /// Explicit registration wins: a paragraph that belongs to a registered
+  /// source is not reported twice.
+  // ignore: use_setters_to_change_properties
+  void setDiscovery(List<FindableSource> Function()? discover) {
+    _discover = discover;
+  }
+
+  /// The sources that registered themselves, in registration order.
+  ///
+  /// Discovery uses this to leave their text alone: a `FindableText` both
+  /// registers and renders a paragraph, and counting it twice would double
+  /// every match inside it.
+  List<FindableSource> get registeredSources => List.unmodifiable(_sources);
+
+  /// The sources found by the last sweep, in visual order.
+  ///
+  /// The highlight overlay reads this to know what to paint.
+  List<FindableSource> get discoveredSources => _discovered;
+
   /// Removes [source] from the search domain.
   void unregister(FindableSource source) {
     _reveals.remove(source);
@@ -143,9 +174,12 @@ final class FindInPageController extends ChangeNotifier {
   void _recompute({bool resetActive = false}) {
     _matches.clear();
     _matchesBySource.clear();
+    _discovered = _query.isEmpty || _discover == null
+        ? const []
+        : _discover!().where((s) => !_sources.contains(s)).toList();
     if (_query.isNotEmpty) {
       final needle = _caseSensitive ? _query : _query.toLowerCase();
-      for (final source in _sources) {
+      for (final source in [..._sources, ..._discovered]) {
         final haystack = _caseSensitive
             ? source.findableText
             : source.findableText.toLowerCase();
@@ -182,7 +216,14 @@ final class FindInPageController extends ChangeNotifier {
         reveal();
         return;
       }
-      final context = match.source.findableContext;
+      final source = match.source;
+      if (source is RenderedTextSource) {
+        // No element to hand to Scrollable.ensureVisible, and aiming at the
+        // matched characters beats aiming at the whole paragraph anyway.
+        source.showMatchOnScreen(match.start, match.end);
+        return;
+      }
+      final context = source.findableContext;
       if (context == null || !context.mounted) return;
       Scrollable.ensureVisible(
         context,
