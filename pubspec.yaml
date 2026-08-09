@@ -15,11 +15,16 @@ topics:
   - widgets
 
 # pub.dev serves screenshots out of the archive and fits the first one into a
-# 190x190 card thumbnail without cropping, so this entry is close to square and
-# small. doc/demo.gif stays out of the archive; the README pulls it from GitHub.
+# 190x190 card thumbnail without cropping, so the close-to-square capture leads
+# and the wide chart follows it. Rendered at 190px the capture still reads as a
+# find bar over highlighted cards at 190x154, while the chart lands at 190x95
+# with unreadable labels. doc/demo.gif stays out of the archive; the README
+# pulls it from GitHub.
 screenshots:
   - description: "Four stock Flutter widgets, none of them wrapped or modified, each showing a search match highlighted by find_in_page."
     path: doc/searchable-grid.png
+  - description: "A line chart: FindableListView reports all 43 matches at every scroll position, while a plain ListView.builder never exceeds 17 and reads none at 35 of 50."
+    path: doc/lazy-list.png
 
 environment:
   sdk: ^3.4.0

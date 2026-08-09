@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 452"
+     font-family="-apple-system, Segoe UI, Roboto, sans-serif">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="88.0" y="38" font-size="18" font-weight="600" fill="#111827">
+  Scrolling a 500-row list that holds 43 matches
+</text>
+<text x="88.0" y="62" font-size="13" fill="#6b7280">
+  the same rows and the same query in both, counted at 50 scroll positions
+</text>
+<path d="M 88.0 298.5 L 103.9 298.5 L 119.8 326.4 L 135.6 332.0 L 151.5 332.0 L 167.4 332.0 L 183.3 332.0 L 199.1 332.0 L 215.0 332.0 L 230.9 332.0 L 246.8 332.0 L 262.7 292.9 L 278.5 292.9 L 294.4 309.7 L 310.3 332.0 L 326.2 332.0 L 342.0 332.0 L 357.9 332.0 L 373.8 332.0 L 389.7 332.0 L 405.6 332.0 L 421.4 332.0 L 437.3 332.0 L 453.2 332.0 L 469.1 326.4 L 484.9 326.4 L 500.8 332.0 L 516.7 332.0 L 532.6 332.0 L 548.4 292.9 L 564.3 276.2 L 580.2 292.9 L 596.1 332.0 L 612.0 332.0 L 627.8 332.0 L 643.7 332.0 L 659.6 332.0 L 675.5 332.0 L 691.3 332.0 L 707.2 332.0 L 723.1 332.0 L 739.0 332.0 L 754.9 332.0 L 770.7 332.0 L 786.6 332.0 L 802.5 332.0 L 818.4 292.9 L 834.2 237.1 L 850.1 242.7 L 866.0 298.5 L 866.0 92.0 L 88.0 92.0 Z" fill="#fee2e2" stroke="none"/>
+<line x1="88.0" y1="332.0" x2="866.0" y2="332.0" stroke="#e3e6ea" stroke-width="1"/>
+<text x="76.0" y="336.0" text-anchor="end" font-size="12" fill="#6b7280">0</text>
+<line x1="88.0" y1="276.2" x2="866.0" y2="276.2" stroke="#e3e6ea" stroke-width="1"/>
+<text x="76.0" y="280.1860465116279" text-anchor="end" font-size="12" fill="#6b7280">10</text>
+<line x1="88.0" y1="220.4" x2="866.0" y2="220.4" stroke="#e3e6ea" stroke-width="1"/>
+<text x="76.0" y="224.37209302325581" text-anchor="end" font-size="12" fill="#6b7280">20</text>
+<line x1="88.0" y1="164.6" x2="866.0" y2="164.6" stroke="#e3e6ea" stroke-width="1"/>
+<text x="76.0" y="168.5581395348837" text-anchor="end" font-size="12" fill="#6b7280">30</text>
+<text x="76.0" y="96.0" text-anchor="end" font-size="12" font-weight="600" fill="#2563eb">43</text>
+
+<line x1="88.0" y1="332.0" x2="866.0" y2="332.0"
+      stroke="#9ca3af" stroke-width="1"/>
+<path d="M 88.0 92.0 L 103.9 92.0 L 119.8 92.0 L 135.6 92.0 L 151.5 92.0 L 167.4 92.0 L 183.3 92.0 L 199.1 92.0 L 215.0 92.0 L 230.9 92.0 L 246.8 92.0 L 262.7 92.0 L 278.5 92.0 L 294.4 92.0 L 310.3 92.0 L 326.2 92.0 L 342.0 92.0 L 357.9 92.0 L 373.8 92.0 L 389.7 92.0 L 405.6 92.0 L 421.4 92.0 L 437.3 92.0 L 453.2 92.0 L 469.1 92.0 L 484.9 92.0 L 500.8 92.0 L 516.7 92.0 L 532.6 92.0 L 548.4 92.0 L 564.3 92.0 L 580.2 92.0 L 596.1 92.0 L 612.0 92.0 L 627.8 92.0 L 643.7 92.0 L 659.6 92.0 L 675.5 92.0 L 691.3 92.0 L 707.2 92.0 L 723.1 92.0 L 739.0 92.0 L 754.9 92.0 L 770.7 92.0 L 786.6 92.0 L 802.5 92.0 L 818.4 92.0 L 834.2 92.0 L 850.1 92.0 L 866.0 92.0" fill="none" stroke="#2563eb" stroke-width="2.5"/>
+<path d="M 88.0 298.5 L 103.9 298.5 L 119.8 326.4 L 135.6 332.0 L 151.5 332.0 L 167.4 332.0 L 183.3 332.0 L 199.1 332.0 L 215.0 332.0 L 230.9 332.0 L 246.8 332.0 L 262.7 292.9 L 278.5 292.9 L 294.4 309.7 L 310.3 332.0 L 326.2 332.0 L 342.0 332.0 L 357.9 332.0 L 373.8 332.0 L 389.7 332.0 L 405.6 332.0 L 421.4 332.0 L 437.3 332.0 L 453.2 332.0 L 469.1 326.4 L 484.9 326.4 L 500.8 332.0 L 516.7 332.0 L 532.6 332.0 L 548.4 292.9 L 564.3 276.2 L 580.2 292.9 L 596.1 332.0 L 612.0 332.0 L 627.8 332.0 L 643.7 332.0 L 659.6 332.0 L 675.5 332.0 L 691.3 332.0 L 707.2 332.0 L 723.1 332.0 L 739.0 332.0 L 754.9 332.0 L 770.7 332.0 L 786.6 332.0 L 802.5 332.0 L 818.4 292.9 L 834.2 237.1 L 850.1 242.7 L 866.0 298.5" fill="none" stroke="#dc2626" stroke-width="2.5"/>
+<text x="102.0" y="114.0" font-size="13" font-weight="600"
+      fill="#2563eb">FindableListView &#183; 43, wherever you are</text>
+<text x="824.2"
+      y="225.1"
+      text-anchor="end" font-size="13"
+      font-weight="600" fill="#dc2626">
+  ListView.builder + FindableText &#183; never above 17
+</text>
+<text x="88.0" y="356.0" text-anchor="middle" font-size="12" fill="#6b7280">0</text>
+<text x="246.8" y="356.0" text-anchor="middle" font-size="12" fill="#6b7280">100</text>
+<text x="405.6" y="356.0" text-anchor="middle" font-size="12" fill="#6b7280">200</text>
+<text x="564.3" y="356.0" text-anchor="middle" font-size="12" fill="#6b7280">300</text>
+<text x="723.1" y="356.0" text-anchor="middle" font-size="12" fill="#6b7280">400</text>
+<text x="866.0" y="356.0" text-anchor="middle" font-size="12" fill="#6b7280">490</text>
+<text x="477.0" y="380.0" text-anchor="middle"
+      font-size="12" fill="#6b7280">row at the top of the viewport</text>
+<text x="22" y="212.0" font-size="12" fill="#6b7280"
+      transform="rotate(-90 22 212.0)" text-anchor="middle">
+  matches the find bar reported
+</text>
+<rect x="88.0" y="390.0" width="778.0" height="46" rx="8"
+      fill="#f9fafb" stroke="#e5e7eb"/>
+<text x="106.0" y="412.0" font-size="13" fill="#b91c1c">
+  a row registers while it is built, and the count moves with the viewport:
+  0 to 17 here, and 0 at 35 of the 50 positions
+</text>
+<text x="106.0" y="430.0" font-size="13" fill="#6b7280">
+  shaded &#183; matches in the list that the count left out
+</text>
+</svg>

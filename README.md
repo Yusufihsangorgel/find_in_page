@@ -165,9 +165,18 @@ scrolling builds and disposes items, which registers and unregisters them and
 makes `matchCount` drift mid-session, and anything scrolled past without being
 built is simply missed.
 
-`FindableListView` fixes this by reading each item's text straight from the
-backing list up front, so the whole list is searched regardless of what is
-built:
+![Line chart of matches reported against scroll position in a 500-row list holding 43 matches. FindableListView is a flat line at 43 across all 50 positions. ListView.builder with FindableText never rises above 17, falls to 0 at 35 of the 50 positions, and the area between the two lines is shaded](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/lazy-list.png)
+
+Both lines come from the same 500 rows and the same query, read at 50 scroll
+positions. `tool/lazy_list_figure.sh` builds the two trees at an identical
+item extent, jumps each to every position and records `matchCount`. The
+shaded band is the gap between the two: matches the list holds that the
+count leaves out. The generator compares the arms before it writes anything,
+and a run where they agree produces no figure.
+
+`FindableListView` closes that gap by reading each item's text straight from
+the backing list up front, so the whole list is searched regardless of what
+is built:
 
 ```dart
 FindInPageScope(
