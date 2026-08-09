@@ -1,3 +1,8 @@
+## 2.0.2
+
+- The README shows the lazy list the matcher walks, drawn by
+  `tool/lazy_list_figure.dart`. Docs and tooling only.
+
 ## 2.0.1
 
 No library code changed in this release. `lib/` is byte-identical to 2.0.0.
