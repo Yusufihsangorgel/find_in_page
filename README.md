@@ -13,6 +13,39 @@ FindInPageScope(child: MyPage())
 
 ![A release-notes page with the find bar open: typing narrows the highlights while the arrow buttons jump between matches and scroll each one into view](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/demo.gif)
 
+## Why this instead of what you already have
+
+**Instead of walking the widget tree yourself.** `RichText`
+(`widgets/basic.dart:6596`) exposes no search entry point, and highlighting a
+hit means constructing a `TextSelection` by hand and passing it to
+`RenderParagraph.getBoxesForSelection` (`rendering/paragraph.dart:1065`).
+Inside a `ListView.builder` there is a harder ceiling:
+`SliverMultiBoxAdaptorElement` holds only the children currently built, which
+is exactly the range `didFinishLayout` reports through
+`_childElements.firstKey()` and `lastKey()` (`widgets/sliver.dart:1221`). No
+tree walk can see rows Flutter never built.
+
+**Instead of the highlighting packages.** `substring_highlight`
+(`lib/substring_highlight.dart:8`) and `highlight_text`
+(`lib/src/highlight_text.dart:32`) are both a `StatelessWidget` that colors
+matched substrings. Neither has a match count, a current match, or a
+`ScrollController`, so neither can report "3 of 17" or bring the next hit into
+view. This is a quiet category rather than a contested one: they draw about
+57k and 14k downloads a month, and no Ctrl+F-style incumbent exists.
+
+**Reach for it when**
+
+- A long document, release-notes page or settings screen needs an in-app
+  Ctrl+F.
+- Matches live in a lazily built `ListView` and off-screen rows still have to
+  be counted and reachable.
+- The bar has to search text you never wrapped, including widgets from other
+  packages.
+
+Skip it if your page is short and fully built, and what users actually want is
+a search field that filters a list: filtering is simpler to build and usually
+clearer to use than a find bar.
+
 That is the whole integration. Ctrl+F (Cmd+F on macOS) opens the bar, typing
 highlights every match, Enter and the arrow buttons move between them and
 scroll each into view, and Escape closes and clears.

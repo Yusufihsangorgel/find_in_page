@@ -1,3 +1,12 @@
+## 2.1.0
+
+- The README now answers, in its first screen, why to reach for this rather
+  than the zero-dependency route or the package that already owns the
+  category. Both answers carry the file and line, or the issue number, that
+  a reader can check. A "reach for it when" list and a sentence on when to
+  skip it follow, because a page that only argues for itself is not useful
+  for deciding.
+
 ## 2.0.2
 
 - The README shows the lazy list the matcher walks, drawn by
