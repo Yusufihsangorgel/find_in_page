@@ -4,6 +4,10 @@ publish_to: none
 version: 0.1.0
 
 environment:
+  # The example depends on the Flutter SDK, so it has to say so: without this
+  # pub resolves it as a plain Dart package and the resolution fails during
+  # `flutter pub publish`.
+  flutter: ">=3.22.0"
   sdk: ^3.4.0
 
 dependencies:
