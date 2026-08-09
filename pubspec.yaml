@@ -1,8 +1,8 @@
 name: find_in_page
-description: >-
-  An in-app find bar for Flutter. Wrap your page and Ctrl+F highlights and
-  scrolls to every match, in text you never wrapped and in lazy-list rows that
-  were never built.
+# Single-line and quoted on purpose. A folded (>-) scalar splits a word across
+# the line break whenever the fold lands mid-token, and pub.dev renders the
+# break verbatim in the sidebar caption.
+description: "An in-app find bar for Flutter. Wrap your page and Ctrl+F highlights and scrolls to every match, in text you never wrapped and in lazy-list rows that were never built."
 version: 2.0.0
 repository: https://github.com/Yusufihsangorgel/find_in_page
 issue_tracker: https://github.com/Yusufihsangorgel/find_in_page/issues
@@ -14,11 +14,12 @@ topics:
   - text
   - widgets
 
+# pub.dev serves screenshots out of the archive and fits the first one into a
+# 190x190 card thumbnail without cropping, so this entry is close to square and
+# small. doc/demo.gif stays out of the archive; the README pulls it from GitHub.
 screenshots:
-  - description: >-
-      Typing a query highlights every match on the page; next/previous
-      jump between matches and scroll the active one into view.
-    path: doc/demo.gif
+  - description: "Four stock Flutter widgets, none of them wrapped or modified, each showing a search match highlighted by find_in_page."
+    path: doc/searchable-grid.png
 
 environment:
   sdk: ^3.4.0

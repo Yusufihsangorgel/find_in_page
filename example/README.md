@@ -3,7 +3,7 @@
 The example app in `lib/main.dart` shows all three ways text becomes searchable
 under one `FindInPageScope`:
 
-1. **Nothing at all.** The `AppBar` title and the intro paragraph are ordinary
+1. Nothing at all. The `AppBar` title and the intro paragraph are ordinary
    `Text` widgets that know nothing about this package, and both are searchable
    because the scope reads the text rendered inside it. Search for `plain` or
    `example` to see it. This is the whole integration for most pages:
@@ -12,29 +12,32 @@ under one `FindInPageScope`:
    FindInPageScope(child: MyPage())
    ```
 
-2. **`FindableText`**, when you want the match highlighted by restyling the text
+2. `FindableText`, when you want the match highlighted by restyling the text
    itself rather than by an overlay drawn on top of it.
 
-3. **`FindableListView`**, for a lazy 2,000-row list, where rows that were never
+3. `FindableListView`, for a lazy 2,000-row list, where rows that were never
    built have no rendered text to discover.
 
 The toggle button in the app bar is wrapped in `ExcludeFromFind`, because it is
 chrome rather than content: without it, searching `list` would match the button
 you are about to press.
 
-![The example app: searching text and jumping to matches across a long list](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/demo.gif)
+![The find bar open over a release-notes page, highlighting every match of the query and scrolling the active one into view](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/demo.gif)
+
+That capture comes from `test/demo_capture_test.dart` in the package repository
+rather than from this app, and the app behaves the same way.
 
 The lazy-list case is the one to try. A plain `ListView.builder` of
 `FindableText` would only ever search the rows currently built, and the match
 count would drift as items scroll in and out. `FindableListView` registers every
-row's text up front, so all 2,000 are searchable and the count stays put:
-searching `row 1997` finds and scrolls to it even though it was never on screen.
+row's text up front. All 2,000 are searchable and the count stays put: searching
+`row 1997` finds and scrolls to it even though it was never on screen.
 
 ```dart
-// findableTextOf gives every row its searchable text up front — that is what
-// makes all 2,000 rows findable, not just the built ones. itemBuilder hands you
-// the match offsets so you render the highlights (the cost of the lazy path;
-// eager content can just use FindableText and skip this).
+// findableTextOf gives every row its searchable text up front. That is what
+// makes all 2,000 rows findable rather than only the built ones. itemBuilder
+// hands you the match offsets so you render the highlights (the cost of the
+// lazy path; eager content can just use FindableText and skip this).
 FindableListView(
   itemCount: rows.length,
   itemExtent: 88,

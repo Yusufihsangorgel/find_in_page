@@ -1,0 +1,16 @@
+# Media that the archive does not need.
+#
+# pub.dev never reads README images out of the .tar.gz. It rewrites every <img>
+# to an external-images.pub.dev proxy pointing back at GitHub raw, so these
+# files only have to exist on the main branch. Excluding them took the download
+# from 1004 KB to 73 KB.
+#
+# Anything listed under pubspec's `screenshots:` is the exception: that path is
+# read from the archive and publishing fails when it is missing. searchable-grid.png
+# is therefore deliberately absent from this list.
+#
+# This file shadows a .gitignore in doc/ only, and there is none.
+demo.gif
+banner.png
+banner.svg
+blog/

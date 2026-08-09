@@ -1,9 +1,9 @@
-![find_in_page banner](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/banner.png)
-
 # find_in_page
 
-An in-app find bar for Flutter. Wrap your page in one widget and Ctrl+F
-searches the text that is already there.
+A user is hunting through your release notes for the line about `TextScaler`,
+and there is no Ctrl+F to press. Mobile has no find bar at all, and on Flutter
+web the browser's own bar searches a canvas that contains no text. This package
+puts one inside the app.
 
 ```dart
 import 'package:find_in_page/find_in_page.dart';
@@ -11,26 +11,60 @@ import 'package:find_in_page/find_in_page.dart';
 FindInPageScope(child: MyPage())
 ```
 
-That is the whole integration. Text inside `Text`, `Text.rich`,
-`SelectableText`, and widgets you did not write such as `AppBar`, `ListTile`
-and `DataTable` is all searchable without being wrapped or changed.
+![A release-notes page with the find bar open: typing narrows the highlights while the arrow buttons jump between matches and scroll each one into view](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/demo.gif)
 
-Press Ctrl+F (Cmd+F on macOS) to open the bar; type to highlight every match;
-Enter or the arrow buttons move between them and scroll each into view; Escape
-closes and clears.
+That is the whole integration. Ctrl+F (Cmd+F on macOS) opens the bar, typing
+highlights every match, Enter and the arrow buttons move between them and
+scroll each into view, and Escape closes and clears.
+
+## Text you never wrapped
+
+The scope searches the text Flutter actually rendered inside it, which is why
+widgets you did not write are covered too. Nothing in this tree implements an
+interface or takes a query parameter:
+
+```dart
+FindInPageScope(
+  child: Column(children: [
+    AppBar(title: Text('Release notes')),
+    ListTile(title: Text('Release 4.0 rollout')),
+    DataTable(columns: channelColumns, rows: channelRows),
+    Text.rich(TextSpan(children: migrationNotice)),
+  ]),
+)
+```
+
+![Four cards labelled AppBar, ListTile, DataTable and Text.rich, each a stock Flutter widget with the query highlighted inside it, under a find bar reading 1/5](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/searchable-grid.png)
+
+That figure comes out of a test run rather than a drawing tool.
+`tool/searchable_grid.dart` builds those four widgets, types into the real find
+bar, and every highlight you can see was painted by the package during the
+capture. `tool/searchable_grid.sh` regenerates it.
+
+The nearest packages on pub.dev answer a smaller question.
+[`substring_highlight`] and [`highlight_text`] take a string you already have
+and restyle the parts that match. You rewrite the widget, you supply the text,
+and neither one counts matches across a page or moves the viewport.
+
+[`substring_highlight`]: https://pub.dev/packages/substring_highlight
+[`highlight_text`]: https://pub.dev/packages/highlight_text
 
 ## Read this before you install
 
-**This does not fix the browser's own Ctrl+F, and nothing written in Dart can.**
-On Flutter web with the default CanvasKit renderer your text is painted into a
-canvas, so the browser's find bar, the browser's reader mode, and a crawler
-looking for a phrase all still see nothing. Flutter has tracked that since 2020
-in [flutter#65504] and it is not solved here.
+This does not fix the browser's own Ctrl+F, and nothing written in Dart can.
+Flutter web has two renderers left, `canvaskit` and `skwasm`, and both paint
+text into a canvas. Under either one the browser's find bar, its reader mode
+and a crawler looking for a phrase all see an empty page. Flutter has tracked
+that since 2020 in [flutter#65504] and it is not solved here.
 
-What this package gives you is an in-app find bar that behaves like the
-browser's one, on every platform Flutter runs on. If what you need is for
-`Ctrl+F` in Chrome to find your contact address, this is the wrong tool and you
-want the HTML renderer or a prerendered page instead.
+Older advice was to build with `--web-renderer html`. That renderer and that
+flag are both gone, and `flutter build web --help` no longer offers a renderer
+choice. When you need Chrome's own Ctrl+F to find your contact address,
+prerender that content as real HTML and serve it outside the canvas. An in-app
+find bar cannot stand in for it.
+
+What you get here is a find bar that behaves like the browser's, on every
+platform Flutter runs on.
 
 [flutter#65504]: https://github.com/flutter/flutter/issues/65504
 
@@ -42,20 +76,13 @@ want the HTML renderer or a prerendered page instead.
 | Text inside widgets you do not own | Yes, automatically |
 | Rows of a `ListView.builder` that were never built | Yes, via `FindableListView` |
 | `TextField` and other editable fields | No, deliberately. A browser does not match inside `<input>` either |
-| Icons | No. Flutter draws them as font glyphs; they are filtered out |
+| Icons | No. Flutter draws them as font glyphs, and those are filtered out |
 | A collapsed `ExpansionTile`, an unselected tab | No. It is not rendered, so there is nothing to find |
 
-Two escape hatches:
-
-* `ExcludeFromFind(child: ...)` keeps a subtree out, which is what you want for
-  a navigation rail or a footer.
-* `FindInPageScope(autoDiscover: false, ...)` turns discovery off entirely and
-  searches only what registered itself, which is how versions before 2.0.0
-  behaved.
-
-## Demo
-
-![demo](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/demo.gif)
+Two escape hatches. `ExcludeFromFind(child: ...)` keeps a subtree out, which is
+what a navigation rail or a footer wants, and
+`FindInPageScope(autoDiscover: false, ...)` turns discovery off altogether and
+searches only what registered itself, the way versions before 2.0.0 behaved.
 
 ## Parts
 
@@ -132,15 +159,15 @@ class _MyWidgetState extends State<MyWidget> implements FindableSource {
 
 ## Searching a lazy list
 
-`FindableText` only registers while it is built. In a `ListView.builder`
-that means only the handful of items in the build/cache area are
-searchable; scrolling builds and disposes items, which registers and
-unregisters them and makes `matchCount` drift mid-session, and anything
-scrolled past without being built is simply missed.
+`FindableText` only registers while it is built. In a `ListView.builder` that
+means only the handful of items in the build and cache area are searchable;
+scrolling builds and disposes items, which registers and unregisters them and
+makes `matchCount` drift mid-session, and anything scrolled past without being
+built is simply missed.
 
-`FindableListView` fixes this by reading each item's text straight from
-the backing list up front, so the whole list is searched regardless of
-what is built:
+`FindableListView` fixes this by reading each item's text straight from the
+backing list up front, so the whole list is searched regardless of what is
+built:
 
 ```dart
 FindInPageScope(
@@ -155,40 +182,36 @@ FindInPageScope(
 )
 ```
 
-`matches` are that item's matches of the current query (empty when there
-are none); `activeMatchIndex` is which one of them is active, or null.
-Rendering the highlight from those offsets is the builder's job, the same
-way a plain `ListView.builder`'s `itemBuilder` owns the whole item.
+`matches` are that item's matches of the current query (empty when there are
+none); `activeMatchIndex` is which one of them is active, or null. Rendering
+the highlight from those offsets is the builder's job, the same way a plain
+`ListView.builder`'s `itemBuilder` owns the whole item.
 
 Because an off-screen match has no live widget, revealing it cannot call
-`Scrollable.ensureVisible`; `FindableListView` instead animates a
-`ScrollController` to `index * itemExtent`, which is why `itemExtent` is
-required. That means every item must be the same height (or width, for a
-horizontal list) - the same constraint `ListView.builder(itemExtent: ...)`
-already has. Variable height items are not supported.
-
-`FindableRecord` is the plain `FindableSource` behind this: text supplied
-directly, with no `findableContext`. Register one yourself with
-`FindInPageController.register(record, reveal: ...)` for other data-driven
-cases; `reveal` runs instead of `Scrollable.ensureVisible` when one of its
-matches becomes active.
+`Scrollable.ensureVisible`. `FindableListView` animates a `ScrollController` to
+`index * itemExtent` instead, which is why `itemExtent` is required. Every item
+must therefore be the same height (or width, for a horizontal list), the same
+constraint `ListView.builder(itemExtent: ...)` already carries. Variable height
+items are unsupported. For other data-driven cases, register a `FindableRecord`
+yourself with `FindInPageController.register(record, reveal: ...)`, where
+`reveal` runs in place of `Scrollable.ensureVisible` when one of its matches
+becomes active.
 
 ## Limits
 
-- Matching is plain text and case insensitive by default
-  (`search(query, caseSensitive: true)` for exact case). Regex is planned.
-- `FindableListView` requires a fixed `itemExtent` and does not render
-  highlights itself (see above); it is a data-driven complement to
-  `FindableText`, not a drop-in replacement.
-- Match order follows widget build order, which for a normal page is
+- Matching is plain text and case insensitive by default; pass
+  `search(query, caseSensitive: true)` for exact case. Regex is planned.
+- Match order follows widget build order, which on a normal page is
   top-to-bottom visual order.
-- `FindInPageScope` needs an `Overlay` ancestor for its built-in bar;
-  every `MaterialApp`/`CupertinoApp`/`WidgetsApp` provides one.
-- Navigation scrolls the widget containing the active match into view. In
-  a paragraph taller than the viewport the exact line may still be
-  offscreen; per-line precision is planned.
-- Matches clipped away by `maxLines`/`overflow` are counted and navigated
-  to, but cannot become visible.
+- Navigation scrolls the widget containing the active match into view. In a
+  paragraph taller than the viewport the exact line can still be offscreen;
+  per-line precision is planned.
+- Matches clipped away by `maxLines` or `overflow` are counted and navigated
+  to, but they cannot become visible.
+- `FindableListView` needs a fixed `itemExtent` and renders no highlights of
+  its own.
+- The built-in bar needs an `Overlay` ancestor. Every `MaterialApp`,
+  `CupertinoApp` and `WidgetsApp` provides one.
 
 ## License
 
