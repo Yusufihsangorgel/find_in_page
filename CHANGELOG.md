@@ -1,3 +1,33 @@
+## 2.0.1
+
+No library code changed in this release. `lib/` is byte-identical to 2.0.0.
+
+- The first screenshot on the package page is now `doc/searchable-grid.png`,
+  which shows the headline feature: an `AppBar`, a `ListTile`, a `DataTable`
+  and a `Text.rich`, none of them wrapped, each with a search match the package
+  highlighted during a real run. `tool/searchable_grid.dart` builds those
+  widgets, types into the find bar and captures what it painted;
+  `tool/searchable_grid.sh` regenerates the file. The demo gif stays at the top
+  of the README, which pub.dev serves from GitHub.
+- The README opens with the situation the package exists for: mobile has no
+  find bar, and on Flutter web the browser's own bar searches a canvas with no
+  text in it. A new "Text you never wrapped" section shows discovery working on
+  widgets the caller does not own, with the figure above and the widget tree it
+  was captured from, and names the nearest packages on pub.dev along with the
+  smaller question they answer.
+- The web-renderer advice was stale. Readers who need the browser's Ctrl+F to
+  find their content were pointed at the HTML renderer, and that renderer and
+  its flag are gone from `flutter build web`. The advice now is to prerender
+  that content as real HTML, and the renderer names are current: `canvaskit`
+  and `skwasm`, both painting text into a canvas.
+- The package description is a single-line scalar now. A folded YAML block
+  joins its lines with a space, and when the fold lands inside a word the
+  package page shows the split verbatim, which is how a sibling package shipped
+  a caption reading "millis econds".
+- README media no longer ship in the archive. pub.dev reads README images from
+  GitHub through its image proxy and takes nothing from the archive but the
+  `screenshots:` files. The download drops from 1004 KB to 73 KB.
+
 ## 2.0.0
 
 **Wrap your page and it works.** Until now every string had to be wrapped in a
