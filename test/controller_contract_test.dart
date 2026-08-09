@@ -201,10 +201,12 @@ void main() {
       controller.search('s');
       await tester.pump();
       expect(controller.matchCount, 1);
-      expect(text.substring(
-        controller.activeMatch!.start,
-        controller.activeMatch!.end,
-      ), 'ß');
+      expect(
+          text.substring(
+            controller.activeMatch!.start,
+            controller.activeMatch!.end,
+          ),
+          'ß');
     });
 
     testWidgets('a query that folds away matches nothing and terminates',
