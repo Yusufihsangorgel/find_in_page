@@ -2,6 +2,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import 'auto_discovery.dart';
+import 'text_fold.dart';
 
 /// A single occurrence of the query inside a registered source.
 @immutable
@@ -49,6 +50,7 @@ final class FindInPageController extends ChangeNotifier {
   List<FindableSource> _discovered = const [];
   String _query = '';
   bool _caseSensitive = false;
+  bool _diacriticSensitive = false;
   int? _activeIndex;
   bool _recomputeScheduled = false;
   bool _disposed = false;
@@ -58,6 +60,16 @@ final class FindInPageController extends ChangeNotifier {
 
   /// Whether matching is case sensitive. Defaults to false.
   bool get caseSensitive => _caseSensitive;
+
+  /// Whether a letter has to be typed with its own accent to match. Defaults
+  /// to false, so `resume` finds `résumé` and `diyarbakir` finds
+  /// `Diyarbakır`.
+  ///
+  /// The fold covers Latin-1 Supplement and Latin Extended-A and drops
+  /// combining marks, so a decomposed spelling matches its composed one. It
+  /// is named for the usual case but does a little more than accents: `ı`
+  /// folds to `i` and `ß` to `ss`, and neither of those is a diacritic.
+  bool get diacriticSensitive => _diacriticSensitive;
 
   /// Total number of matches across all sources.
   int get matchCount => _matches.length;
@@ -72,9 +84,14 @@ final class FindInPageController extends ChangeNotifier {
   /// Starts or updates a search. An empty [query] clears the session.
   ///
   /// The first match becomes active and is scrolled into view.
-  void search(String query, {bool? caseSensitive}) {
+  ///
+  /// Both flags keep their value until passed again, and they are
+  /// independent axes: matching can respect case while ignoring accents, or
+  /// the other way round.
+  void search(String query, {bool? caseSensitive, bool? diacriticSensitive}) {
     _query = query;
     if (caseSensitive != null) _caseSensitive = caseSensitive;
+    if (diacriticSensitive != null) _diacriticSensitive = diacriticSensitive;
     _recompute(resetActive: true);
   }
 
@@ -177,20 +194,38 @@ final class FindInPageController extends ChangeNotifier {
     _discovered = _query.isEmpty || _discover == null
         ? const []
         : _discover!().where((s) => !_sources.contains(s)).toList();
-    if (_query.isNotEmpty) {
-      final needle = _caseSensitive ? _query : _query.toLowerCase();
+    final needle = _query.isEmpty
+        ? ''
+        : foldForSearch(
+            _query,
+            caseSensitive: _caseSensitive,
+            foldToBaseLetters: !_diacriticSensitive,
+          ).text;
+    // A query of nothing but combining marks is not empty, but folds to a
+    // string that is. indexOf finds that at every offset and never advances.
+    if (needle.isNotEmpty) {
       for (final source in [..._sources, ..._discovered]) {
-        final haystack = _caseSensitive
-            ? source.findableText
-            : source.findableText.toLowerCase();
+        final haystack = foldForSearch(
+          source.findableText,
+          caseSensitive: _caseSensitive,
+          foldToBaseLetters: !_diacriticSensitive,
+        );
         var offset = 0;
         while (true) {
-          final index = haystack.indexOf(needle, offset);
+          final index = haystack.text.indexOf(needle, offset);
           if (index < 0) break;
-          final match = FindMatch._(source, index, index + needle.length);
+          offset = index + needle.length;
+          final start = haystack.sourceOffset(index);
+          final end = haystack.sourceOffset(offset);
+          // A letter that folds to two, like the eszett, can hold both ends
+          // of a match inside itself: "s" is in "weiss" twice but "Weiß" has
+          // one character to paint. Such a match highlights nothing, so it
+          // would count in the tally and then be a stop where Next appears
+          // to do nothing at all.
+          if (end <= start) continue;
+          final match = FindMatch._(source, start, end);
           _matches.add(match);
           (_matchesBySource[source] ??= []).add(match);
-          offset = index + needle.length;
         }
       }
     }

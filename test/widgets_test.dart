@@ -125,6 +125,27 @@ void main() {
       expect(find.text('standalone'), findsOneWidget);
     });
 
+    testWidgets('highlights the original characters of a folded match',
+        (tester) async {
+      // The controller matches against a folded copy, but this widget slices
+      // its own unfolded text to build the highlighted span. "Straße" folds
+      // to seven letters and is six, so an offset taken from the folded copy
+      // paints the wrong characters here, or throws out of substring.
+      final controller = FindInPageController();
+      await tester.pumpWidget(_app(
+        FindInPageScope(
+          controller: controller,
+          child: const FindableText('Grüße aus Straße'),
+        ),
+      ));
+
+      controller.search('strasse');
+      await tester.pump();
+
+      expect(controller.matchCount, 1);
+      expect(_highlightedSegments(tester), ['Straße']);
+    });
+
     testWidgets('scrolls the active match into view', (tester) async {
       final controller = FindInPageController();
       final scrollController = ScrollController();
