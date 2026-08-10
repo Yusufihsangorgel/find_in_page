@@ -190,11 +190,12 @@ void main() {
       expect(text.substring(match.start, match.end), 'cat');
     });
 
-    testWidgets('an expansion never yields a zero-width match', (tester) async {
-      // "Weiß" folds to "weiss", which contains "s" twice, but the original
-      // has one character to highlight. The first hit lands entirely inside
-      // the eszett and maps to (3, 3): it paints nothing, yet it would still
-      // be counted and be a stop on the way to the next match.
+    testWidgets('a match inside one expanded letter highlights that letter',
+        (tester) async {
+      // "Weiß" folds to "weiss", so "s" hits at two folded offsets and both
+      // of them live inside the one eszett. Reporting the character once, and
+      // painting it, is the answer: dropping the hit finds nothing in a word
+      // that plainly contains it, and keeping both counts one letter twice.
       const text = 'Weiß';
       final controller = FindInPageController()..register(_TextSource(text));
 
@@ -207,6 +208,48 @@ void main() {
             controller.activeMatch!.end,
           ),
           'ß');
+    });
+
+    testWidgets('both halves of an expansion are findable', (tester) async {
+      // Rounding the end of a match down to the letter it started in made the
+      // first half of every expansion unfindable: "Æther" folds to "aether",
+      // and searching "a" produced an end at or before its start, so the hit
+      // was discarded and the word appeared not to contain an a at all.
+      const pairs = {
+        'Æther': ['a', 'e'],
+        'þing': ['t', 'h'],
+        'Œuvre': ['o', 'e'],
+        'Ĳsland': ['i', 'j'],
+      };
+      for (final entry in pairs.entries) {
+        for (final query in entry.value) {
+          final controller = FindInPageController()
+            ..register(_TextSource(entry.key));
+          controller.search(query);
+          await tester.pump();
+          expect(controller.matchCount, greaterThan(0),
+              reason: '${entry.key} contains $query once folded');
+          controller.dispose();
+        }
+      }
+    });
+
+    testWidgets('a match ending inside an expansion covers it', (tester) async {
+      // "Straße" folds to "strasse". A query ending on the first of the two
+      // folded s characters used to highlight "Stra", stopping one character
+      // short of the letter that made it match.
+      const text = 'Straße';
+      final controller = FindInPageController()..register(_TextSource(text));
+
+      controller.search('stras');
+      await tester.pump();
+      expect(controller.matchCount, 1);
+      expect(
+          text.substring(
+            controller.activeMatch!.start,
+            controller.activeMatch!.end,
+          ),
+          'Straß');
     });
 
     testWidgets('a query that folds away matches nothing and terminates',

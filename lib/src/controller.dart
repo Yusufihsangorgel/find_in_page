@@ -216,13 +216,15 @@ final class FindInPageController extends ChangeNotifier {
           if (index < 0) break;
           offset = index + needle.length;
           final start = haystack.sourceOffset(index);
-          final end = haystack.sourceOffset(offset);
-          // A letter that folds to two, like the eszett, can hold both ends
-          // of a match inside itself: "s" is in "weiss" twice but "Weiß" has
-          // one character to paint. Such a match highlights nothing, so it
-          // would count in the tally and then be a stop where Next appears
-          // to do nothing at all.
-          if (end <= start) continue;
+          // Rounding up, so that a match whose end falls inside a letter that
+          // folded to several covers that whole letter. Searching "Weiß" for
+          // "s" highlights the eszett rather than nothing at all, and
+          // "Straße" for "stras" highlights "Straß" rather than "Stra".
+          final end = haystack.sourceEnd(offset);
+          assert(end > start, 'a match must cover at least one character');
+          // Step over the whole letter, not just the needle, so that a match
+          // living inside an expansion is reported once.
+          offset = haystack.resumeAfter(end);
           final match = FindMatch._(source, start, end);
           _matches.add(match);
           (_matchesBySource[source] ??= []).add(match);

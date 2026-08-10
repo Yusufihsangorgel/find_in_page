@@ -19,7 +19,50 @@ final class FoldedText {
   final List<int>? _map;
 
   /// The offset in the original text that folded [offset] came from.
+  ///
+  /// This rounds down: every code unit a letter folded to reports the offset
+  /// of that one letter. Right for the start of a match, wrong for the end,
+  /// which is what [sourceEnd] is for.
   int sourceOffset(int offset) => _map == null ? offset : _map[offset];
+
+  /// Where a match ending at folded [offset] ends in the original text.
+  ///
+  /// A letter that folds to two, like the eszett to `ss`, can hold a match
+  /// boundary inside itself. Rounding down there points at the start of that
+  /// same letter, which gives an end at or before the start: the match either
+  /// paints nothing or stops one letter short of what it matched. Searching
+  /// `Straße` for `stras` highlighted `Stra`, and searching `Æther` for `a`
+  /// found nothing at all, because the whole match lived inside the `Æ`.
+  ///
+  /// Rounding up instead lands after the last letter that contributed, which
+  /// is the letter the reader needs to see highlighted. The scan is bounded by
+  /// how far one letter expands, which is two or three code units.
+  int sourceEnd(int offset) {
+    final map = _map;
+    if (map == null) return offset;
+    if (offset <= 0) return map[0];
+    final lastContributor = map[offset - 1];
+    for (var i = offset; i < map.length; i++) {
+      if (map[i] > lastContributor) return map[i];
+    }
+    return map[map.length - 1];
+  }
+
+  /// Where to resume scanning so that a match ending at source offset [end]
+  /// is not found a second time.
+  ///
+  /// A match that ended inside an expanded letter has to be stepped over
+  /// whole. `Weiß` folds to `weiss`, so `s` hits at two folded offsets, and
+  /// both of them highlight the same eszett; resuming past the needle would
+  /// report one character as two matches.
+  int resumeAfter(int end) {
+    final map = _map;
+    if (map == null) return end;
+    for (var i = 0; i < map.length; i++) {
+      if (map[i] >= end) return i;
+    }
+    return text.length;
+  }
 }
 
 /// Folds [source] into the form matching compares against.
