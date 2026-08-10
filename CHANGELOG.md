@@ -1,3 +1,12 @@
+## 2.2.3
+
+- Tests for `showMatchOnScreen`, the last step of a find and the only public
+  member left that no test named. The half worth having is the early return:
+  a source whose render object went away between the sweep that found it and
+  the scroll that would reveal it is routine in a lazy list, and throwing
+  there would take down a search over one stale row. Removing that guard turns
+  three red; skipping the scroll turns five. No behaviour changed.
+
 ## 2.2.2
 
 - Tests for `setDiscovery` and `sourceTextChanged`, the two hooks a scope uses
