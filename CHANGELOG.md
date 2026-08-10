@@ -1,3 +1,11 @@
+## 2.2.2
+
+- Tests for `setDiscovery` and `sourceTextChanged`, the two hooks a scope uses
+  to drive the controller. Both carry a rule invisible from the call site:
+  discovery must not report text a registered source already owns (removing
+  that guard turns seven of them red), and a text change with no search running
+  must not schedule work (three). No behaviour changed.
+
 ## 2.2.1
 
 - Tests for the two pieces a caller writing their own highlighted widget uses,
