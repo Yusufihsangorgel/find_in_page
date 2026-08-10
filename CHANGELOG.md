@@ -1,3 +1,20 @@
+## 2.2.0
+
+- Search now matches across accents, the dotless and dotted i, and the eszett:
+  `resume` finds `résumé`, `isik` finds `IŞIK`, `strasse` finds `Straße`. This
+  changes what a search returns, so a query that used to find nothing in
+  Turkish, German or French text will now find something. Pass
+  `diacriticSensitive: true` to `search` for the old exact behaviour; it is
+  sticky the same way `caseSensitive` is.
+- Highlight offsets stay correct when a letter folds to more than one, which
+  is the part that is easy to get wrong. A match ending inside such a letter
+  covers the whole letter rather than stopping one character short, and a
+  match living entirely inside one is reported once rather than dropped or
+  counted twice.
+- `test/fold_table_test.dart` walks the whole fold table rather than sampling
+  it: every expansion against every substring of what it folds to, all hundred
+  adjacent pairs, and two invariants checked over 1,204 reported matches.
+
 ## 2.1.0
 
 - The README now answers, in its first screen, why to reach for this rather
