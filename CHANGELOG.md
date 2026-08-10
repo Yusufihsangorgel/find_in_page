@@ -1,3 +1,12 @@
+## 2.2.1
+
+- Tests for the two pieces a caller writing their own highlighted widget uses,
+  neither of which was named anywhere in the suite. `FindInPageScope.maybeOf`
+  returns null where `of` throws, and picks the nearest scope when they nest.
+  `FindInPageController.isActive` compares by identity, so a match held from
+  before a re-search does not light up again on offsets that happen to line up.
+  No behaviour changed.
+
 ## 2.2.0
 
 - Search now matches across accents, the dotless and dotted i, and the eszett:
