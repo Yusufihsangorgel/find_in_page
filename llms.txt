@@ -4,15 +4,16 @@ An in-app find bar for Flutter. Wrap your page and Ctrl+F highlights and scrolls
 
 pub.dev: https://pub.dev/packages/find_in_page
 source: https://github.com/Yusufihsangorgel/find_in_page
+demo: https://yusufihsangorgel.github.io/find_in_page/
 
 ## Before you call it
 
-AGENTS.md in the repository root is written for you. It carries the contracts that are easy to get wrong — what must be awaited or disposed, what throws and when, and the mistakes whose symptom is silence rather than an error — along with the shortest correct usage taken from a runnable example.
+AGENTS.md in the repository root is written for you. It carries the contracts that are easy to get wrong — scope placement, controller ownership, the post-layout first search, lazy-list registration and highlight rendering, and the web shortcut's limits — along with the shortest correct usage taken from the live example.
 
-It also says when NOT to reach for this package. Read that part before adding the dependency.
+It also says what the package deliberately cannot search or reveal. Read those limits before adding the dependency.
 
 ## Layout
 
-- `lib/` — public API
-- `example/` — runnable examples
-- `test/` — the suite; `dart test` (or `flutter test`) runs it
+- `lib/find_in_page.dart` — public exports; `lib/src/` — implementation
+- `example/` — runnable app and source of the live web demo
+- `test/` — regular suite: `flutter test --exclude-tags demo`; the `demo`-tagged capture is opt-in
