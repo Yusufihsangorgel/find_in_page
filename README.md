@@ -13,6 +13,10 @@ FindInPageScope(child: MyPage())
 
 ![A release-notes page with the find bar open: typing narrows the highlights while the arrow buttons jump between matches and scroll each one into view](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/demo.gif)
 
+That example is running at
+[yusufihsangorgel.github.io/find_in_page](https://yusufihsangorgel.github.io/find_in_page/),
+built for web from `example/` on every push to `main`.
+
 ## Why this instead of what you already have
 
 **Instead of walking the widget tree yourself.** `RichText`

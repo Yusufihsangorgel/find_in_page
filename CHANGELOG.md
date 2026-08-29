@@ -1,3 +1,8 @@
+## 2.3.2
+
+- The example now builds for web and deploys to GitHub Pages, so the find bar
+  can be tried without cloning anything. Library code is unchanged.
+
 ## 2.3.1
 
 - A `SelectionArea` wrapping the page, and a `SelectableText`, already
