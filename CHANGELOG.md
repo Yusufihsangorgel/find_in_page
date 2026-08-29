@@ -1,3 +1,13 @@
+## 2.3.1
+
+- A `SelectionArea` wrapping the page, and a `SelectableText`, already
+  painted their own highlight while the find overlay painted its matches,
+  and a drag-select already landed while the bar was open. The overlay
+  paints after the child and does not hit-test, so the two fills live in
+  different layers and neither swallows the other's gestures. That was
+  untested and unstated. `test/selection_interaction_test.dart` pins it;
+  the README now says so. No behaviour changed.
+
 ## 2.3.0
 
 - On Flutter web, Ctrl+F / Cmd+F is intercepted as a best-effort

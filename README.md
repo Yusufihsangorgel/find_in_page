@@ -131,6 +131,9 @@ lets them.
 | Icons | No. Flutter draws them as font glyphs, and those are filtered out |
 | A collapsed `ExpansionTile`, an unselected tab | No. It is not rendered, so there is nothing to find |
 
+A `SelectionArea` wrapping the page is supported: both the selection highlight
+and the match highlight paint, and drag-select still works with the bar open.
+
 Two escape hatches. `ExcludeFromFind(child: ...)` keeps a subtree out, which is
 what a navigation rail or a footer wants, and
 `FindInPageScope(autoDiscover: false, ...)` turns discovery off altogether and
