@@ -1,12 +1,15 @@
 # find_in_page example
 
-The example app in `lib/main.dart` shows all three ways text becomes searchable
-under one `FindInPageScope`:
+The example app in `lib/main.dart` is the live demo of the package. The find
+bar is on the screen when the page loads, already searching, so the first
+thing a visitor sees is matches highlighted inside widgets that were never
+wrapped for this package.
 
-1. Nothing at all. The `AppBar` title and the intro paragraph are ordinary
-   `Text` widgets that know nothing about this package, and both are searchable
-   because the scope reads the text rendered inside it. Search for `plain` or
-   `example` to see it. This is the whole integration for most pages:
+It shows all three ways text becomes searchable under one `FindInPageScope`:
+
+1. Nothing at all. The `AppBar` title, the `ListTile`s, the `DataTable`, and
+   the `Text.rich` block are ordinary Flutter widgets. Searching `release`
+   hits all of them because the scope reads the text rendered inside it.
 
    ```dart
    FindInPageScope(child: MyPage())
@@ -16,22 +19,27 @@ under one `FindInPageScope`:
    itself rather than by an overlay drawn on top of it.
 
 3. `FindableListView`, for a lazy 2,000-row list, where rows that were never
-   built have no rendered text to discover.
+   built have no rendered text to discover. The bottom navigation switches to
+   that list and searches `row 1997`, which is found and scrolled to even
+   though it was never on screen.
 
-The toggle button in the app bar is wrapped in `ExcludeFromFind`, because it is
-chrome rather than content: without it, searching `list` would match the button
-you are about to press.
+The find bar and the bottom navigation are wrapped in `ExcludeFromFind`,
+because they are chrome rather than content: without that, searching `row`
+would also match the destination you are about to press.
+
+Apps usually hide the bar until Ctrl+F (Cmd+F on macOS). This example keeps
+the bar visible and runs a search on the first frame so a browser visitor
+does not have to know the shortcut. Ctrl+F is still intercepted on web, so
+the browser's own find does not open over an empty canvas.
+
+The section labels (`ListTile`, `DataTable`, `Text.rich`, `FindableText`) are
+also `ExcludeFromFind`: they name the widget class, they are not part of the
+page being searched.
 
 ![The find bar open over a release-notes page, highlighting every match of the query and scrolling the active one into view](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/demo.gif)
 
 That capture comes from `test/demo_capture_test.dart` in the package repository
 rather than from this app, and the app behaves the same way.
-
-The lazy-list case is the one to try. A plain `ListView.builder` of
-`FindableText` would only ever search the rows currently built, and the match
-count would drift as items scroll in and out. `FindableListView` registers every
-row's text up front. All 2,000 are searchable and the count stays put: searching
-`row 1997` finds and scrolls to it even though it was never on screen.
 
 ```dart
 // findableTextOf gives every row its searchable text up front. That is what
@@ -56,6 +64,8 @@ Run it:
 cd example
 flutter run
 ```
+
+On web, from the same directory: `flutter run -d chrome`.
 
 See the package README for the controller API when you want to drive search from
 your own UI instead of the built-in `FindBar`.
