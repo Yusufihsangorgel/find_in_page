@@ -6,10 +6,17 @@ import 'auto_discovery.dart';
 import 'controller.dart';
 import 'find_bar.dart';
 import 'highlight_overlay.dart';
+import 'web_find_intercept.dart';
+
+/// Translucent yellow, the colour browsers paint behind find matches.
+const Color _matchFill = Color(0x80FFEB3B);
+
+/// Translucent orange, the colour browsers paint behind the active match.
+const Color _activeMatchFill = Color(0xB3FF9800);
 
 /// Wires find-in-page into a subtree: searches the text rendered inside it,
 /// opens a [FindBar] on the platform find shortcut (Cmd+F on macOS and iOS,
-/// Ctrl+F elsewhere), and closes it on Escape.
+/// Ctrl+F elsewhere; either modifier on web), and closes it on Escape.
 ///
 /// By default the scope finds text on its own. Every string Flutter draws is
 /// searchable whether or not you wrapped it, including text inside widgets you
@@ -36,12 +43,29 @@ import 'highlight_overlay.dart';
 ///
 /// For a custom find UI, pass [showBar]: false and either handle
 /// [onOpenRequested] or drive the controller directly.
-/// Translucent yellow, the colour browsers paint behind find matches.
-const Color _matchFill = Color(0x80FFEB3B);
-
-/// Translucent orange, the colour browsers paint behind the active match.
-const Color _activeMatchFill = Color(0xB3FF9800);
-
+///
+/// ## Web
+///
+/// While this scope is mounted and would actually open a bar (or call
+/// [onOpenRequested]), the find shortcut is reported as handled. On
+/// Flutter web the engine turns that into `keydown.preventDefault()`, and
+/// a capture listener on `window` does the same if the event never reaches
+/// Dart. Chrome and Firefox usually honour that and open this bar instead
+/// of theirs. Safari did in a 2020 survey; that has not been re-checked
+/// here.
+///
+/// That is a keyboard intercept, not a substitute for the browser's find
+/// engine. It does not put text into the DOM, does not help a crawler or
+/// reader mode, and does not intercept Find chosen from a browser menu or
+/// from mobile-browser chrome. F3 and Ctrl/Cmd+G are also left alone.
+///
+/// If a browser refuses to let the page have the key — some Safari
+/// versions, or Firefox with "Override Keyboard Shortcuts" set to Block —
+/// the user gets the browser's find bar over a canvas that has nothing
+/// findable in it. This scope still opens its own bar when the key
+/// reaches Dart, so both can appear together. When the key never reaches
+/// the page, only the native bar opens. There is no API that can force
+/// the intercept to win.
 final class FindInPageScope extends StatefulWidget {
   /// Creates a scope that makes descendant `FindableText` widgets
   /// searchable.
@@ -65,10 +89,14 @@ final class FindInPageScope extends StatefulWidget {
 
   /// Whether the scope shows its own [FindBar] when the find shortcut is
   /// pressed. Set to false when building a custom find UI.
+  ///
+  /// When this is false and [onOpenRequested] is also null, the shortcut
+  /// is not handled, so on web the browser is left to run its own find.
   final bool showBar;
 
   /// Called when the find shortcut is pressed while [showBar] is false.
-  /// When this is null too, the shortcut is ignored.
+  /// When this is null too, the shortcut is ignored and, on web, not
+  /// intercepted.
   final VoidCallback? onOpenRequested;
 
   /// Where the built-in bar is placed. Directional, so `topEnd` follows
@@ -124,6 +152,7 @@ class _FindInPageScopeState extends State<FindInPageScope> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
+    installWebFindIntercept(_shouldInterceptBrowserFind);
     _installDiscovery();
   }
 
@@ -156,20 +185,35 @@ class _FindInPageScopeState extends State<FindInPageScope> {
 
   @override
   void dispose() {
+    uninstallWebFindIntercept(_shouldInterceptBrowserFind);
     HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     widget.controller?.setDiscovery(null);
     _ownedController?.dispose();
     super.dispose();
   }
 
-  bool _onKeyEvent(KeyEvent event) {
-    if (event is! KeyDownEvent) return false;
+  /// Whether this scope would actually take the find shortcut.
+  ///
+  /// Read from the web capture listener on each keydown. When false, the
+  /// listener must not `preventDefault`, or a scope that has disabled its
+  /// bar would still steal the key from the browser.
+  bool _shouldInterceptBrowserFind() {
+    if (!mounted) return false;
+    return widget.showBar || widget.onOpenRequested != null;
+  }
+
+  bool _findModifierPressed() {
+    final control = HardwareKeyboard.instance.isControlPressed;
+    final meta = HardwareKeyboard.instance.isMetaPressed;
+    if (kIsWeb) return control || meta;
     final apple = defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.iOS;
-    final modifierPressed = apple
-        ? HardwareKeyboard.instance.isMetaPressed
-        : HardwareKeyboard.instance.isControlPressed;
-    if (event.logicalKey == LogicalKeyboardKey.keyF && modifierPressed) {
+    return apple ? meta : control;
+  }
+
+  bool _onKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (event.logicalKey == LogicalKeyboardKey.keyF && _findModifierPressed()) {
       if (!widget.showBar && widget.onOpenRequested == null) return false;
       _openRequested();
       return true;

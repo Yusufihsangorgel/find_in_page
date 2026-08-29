@@ -1,3 +1,24 @@
+## 2.3.0
+
+- On Flutter web, Ctrl+F / Cmd+F is intercepted as a best-effort
+  `preventDefault` so the in-app bar can open instead of the browser's.
+  That was already how the engine treats a handled key: this package has
+  returned handled for the shortcut since 0.1.0, and Flutter's web
+  keyboard binding already calls `preventDefault` when it does. What was
+  missing was saying so, testing the handled bit, and a capture listener
+  that still cancels the key if Flutter's semantics gate never delivers
+  it, including when the user presses the modifier this platform would
+  not have used (Ctrl on a Mac, Cmd elsewhere). It does not put text in
+  the DOM, does not help a crawler or reader mode, does not intercept
+  Find chosen from a browser menu or from mobile chrome, and does not
+  close flutter#65504. If a browser refuses to let the page have the
+  key, the user gets the browser's find bar over a canvas that has
+  nothing findable in it; Firefox users who blocked "Override Keyboard
+  Shortcuts" get only that native bar. F3 and Ctrl+G are left alone.
+  Off web nothing changes: the listener is a stub, and only the
+  platform's own modifier is handled. The scope's dartdoc now sits on
+  the class; it had been attached to the default highlight colour.
+
 ## 2.2.3
 
 - Tests for `showMatchOnScreen`, the last step of a find and the only public

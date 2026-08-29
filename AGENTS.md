@@ -40,6 +40,8 @@ return MaterialApp(
 
 **Focus / keyboard.** While mounted, `FindInPageScope` handles the shortcut via `HardwareKeyboard` globally. The handler does not move focus; when the built-in bar opens, `FindBar` defaults `autofocus` to true. Escape is consumed only while the built-in bar is visible, and then runs `clearSearch`. `showBar: false` with no `onOpenRequested` ignores the shortcut; with it, the callback runs and Escape does not clear. `FindBar` Enter calls `next`. The bar lives in the `Overlay`, outside `child`, so the query field is not searched.
 
+On Flutter web, returning handled is what the engine maps to `keydown.preventDefault()`, so the in-app bar can take Ctrl/Cmd+F on browsers that allow it (Chrome and Firefox usually do; Safari last measured 2020). A capture listener on `window` does the same if the key never reaches Dart. That is a keyboard intercept, not a 65504 fix: it does not put text in the DOM, does not help a crawler, and does not affect Find chosen from a browser menu. If the browser refuses the key, the user gets the browser's find bar over a canvas that has nothing findable in it. `showBar: false` with no `onOpenRequested` must not intercept. F3 / Ctrl+G are not intercepted. Off web the listener is a no-op and only the platform modifier is handled.
+
 ## Mistakes
 
 - **Scope not an ancestor of the text.** Symptom: `matchCount == 0`, nothing highlights, no error. Fix: wrap the page (`Scaffold` in the example).
@@ -51,6 +53,7 @@ return MaterialApp(
 - **Chrome left searchable, or a custom `FindableSource` that still renders text.** Symptom: extra matches, or `matchCount` doubled. Fix: `ExcludeFromFind`.
 - **Disposing the wrong controller.** Symptom: leaks or use-after-dispose. Call `dispose` only on a `FindInPageController` you constructed.
 - **`search(q, caseSensitive: true)` then `search(other)`.** Symptom: later searches stay sensitive. Pass the flag again to change it. Same for `diacriticSensitive`. Query is a plain substring, not a regex.
+- **Expecting the web intercept to make canvas text visible to the browser.** Symptom: Edit → Find, reader mode, or a crawler still sees nothing, or Safari / a blocked Firefox still opens an empty native bar. Deliberate; the intercept is the keyboard shortcut only, and it is best-effort.
 
 ## Layout
 

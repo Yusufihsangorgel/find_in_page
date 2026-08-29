@@ -82,13 +82,31 @@ and neither one counts matches across a page or moves the viewport.
 [`substring_highlight`]: https://pub.dev/packages/substring_highlight
 [`highlight_text`]: https://pub.dev/packages/highlight_text
 
-## Read this before you install
+## Web
 
-This does not fix the browser's own Ctrl+F, and nothing written in Dart can.
-Flutter web has two renderers left, `canvaskit` and `skwasm`, and both paint
-text into a canvas. Under either one the browser's find bar, its reader mode
-and a crawler looking for a phrase all see an empty page. Flutter has tracked
-that since 2020 in [flutter#65504] and it is not solved here.
+On Flutter web this package takes over the **keyboard shortcut** — Ctrl+F
+or Cmd+F — on browsers that allow a page to cancel that key. Chrome and
+Firefox usually do. Safari did in a 2020 key-by-key survey; that result is
+old and was not re-checked here. Firefox users (and some enterprises) can
+deny the page permission to override shortcuts, and then the keys never
+reach us.
+
+That is all the intercept is. It does not put text into the DOM, so it
+does not help a crawler, reader mode, or the browser's own find engine.
+Find chosen from a browser menu, from the iOS share sheet, or from
+Android "Find in page" is not a key event and is not intercepted. F3 and
+Ctrl+G are also find in various browsers and are left alone.
+
+This is not a fix for [flutter#65504]. Flutter web has two renderers
+left, `canvaskit` and `skwasm`, and both paint text into a canvas. Under
+either one the browser's find bar, its reader mode and a crawler looking
+for a phrase all see an empty page.
+
+If a browser refuses to let the page have the key, the user gets the
+browser's find bar over a canvas that has nothing findable in it. The
+in-app bar still opens when the key reaches Dart, so both can appear
+together. When the key never reaches the page, only the native bar
+opens. There is no API that can force the intercept to win.
 
 Older advice was to build with `--web-renderer html`. That renderer and that
 flag are both gone, and `flutter build web --help` no longer offers a renderer
@@ -97,7 +115,8 @@ prerender that content as real HTML and serve it outside the canvas. An in-app
 find bar cannot stand in for it.
 
 What you get here is a find bar that behaves like the browser's, on every
-platform Flutter runs on.
+platform Flutter runs on. On web, the keys open that bar when the browser
+lets them.
 
 [flutter#65504]: https://github.com/flutter/flutter/issues/65504
 
@@ -254,6 +273,10 @@ becomes active.
   its own.
 - The built-in bar needs an `Overlay` ancestor. Every `MaterialApp`,
   `CupertinoApp` and `WidgetsApp` provides one.
+- On Flutter web, Ctrl+F / Cmd+F is intercepted when the browser allows
+  it. That does not put text in the DOM. Find from a menu, F3, and
+  Ctrl+G are not intercepted. If the browser refuses, its empty find bar
+  still appears.
 
 ## License
 
