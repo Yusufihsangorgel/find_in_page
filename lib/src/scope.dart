@@ -36,10 +36,19 @@ const Color _activeMatchFill = Color(0xB3FF9800);
 /// back to registered sources only.
 ///
 /// The shortcut is registered globally while the scope is mounted, so it
-/// works no matter where keyboard focus is; it never takes or moves focus
-/// itself. The bar is rendered into the nearest [Overlay] (every
-/// `MaterialApp`, `CupertinoApp`, or `WidgetsApp` provides one), so it is
-/// visible and tappable no matter how [child] is laid out.
+/// works no matter where keyboard focus is; registering it does not itself
+/// move focus. Opening the built-in bar does: its query field takes
+/// keyboard focus even if something else held it, and closing the bar
+/// (button, Escape, or [FindInPageController.close]) returns focus to
+/// whatever that was, if it can still take focus. The bar is rendered into
+/// the nearest [Overlay] (every `MaterialApp`, `CupertinoApp`, or
+/// `WidgetsApp` provides one), so it is visible and tappable no matter how
+/// [child] is laid out.
+///
+/// [FindInPageController.isOpen] tracks whether find is open — the bar is
+/// showing, or a custom UI was told to open — and [FindInPageController.open]
+/// / [FindInPageController.close] drive it the same way the shortcut and the
+/// bar's own close button do, so all four paths keep [isOpen] truthful.
 ///
 /// For a custom find UI, pass [showBar]: false and either handle
 /// [onOpenRequested] or drive the controller directly.
@@ -154,6 +163,10 @@ class _FindInPageScopeState extends State<FindInPageScope> {
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
     installWebFindIntercept(_shouldInterceptBrowserFind);
     _installDiscovery();
+    _controller.setOpenCloseHandlers(
+      _handleControllerOpen,
+      _handleControllerClose,
+    );
   }
 
   @override
@@ -163,6 +176,13 @@ class _FindInPageScopeState extends State<FindInPageScope> {
         oldWidget.autoDiscover != widget.autoDiscover) {
       oldWidget.controller?.setDiscovery(null);
       _installDiscovery();
+    }
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?.setOpenCloseHandlers(null, null);
+      _controller.setOpenCloseHandlers(
+        _handleControllerOpen,
+        _handleControllerClose,
+      );
     }
   }
 
@@ -188,6 +208,9 @@ class _FindInPageScopeState extends State<FindInPageScope> {
     uninstallWebFindIntercept(_shouldInterceptBrowserFind);
     HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     widget.controller?.setDiscovery(null);
+    // Also resets isOpen to false: a passed-in controller must not keep
+    // reporting a bar that this scope, and the bar with it, no longer has.
+    widget.controller?.setOpenCloseHandlers(null, null);
     _ownedController?.dispose();
     super.dispose();
   }
@@ -215,19 +238,24 @@ class _FindInPageScopeState extends State<FindInPageScope> {
     if (event is! KeyDownEvent) return false;
     if (event.logicalKey == LogicalKeyboardKey.keyF && _findModifierPressed()) {
       if (!widget.showBar && widget.onOpenRequested == null) return false;
-      _openRequested();
+      _controller.open();
       return true;
     }
     // Only consume Escape while the built-in bar is open, so dialogs and
     // other Escape handlers keep working otherwise.
     if (event.logicalKey == LogicalKeyboardKey.escape && _barVisible) {
-      _close();
+      _controller.close();
       return true;
     }
     return false;
   }
 
-  void _openRequested() {
+  /// What [FindInPageController.open] does beyond setting `isOpen`, for this
+  /// scope: show the built-in bar (whose own `initState` moves focus into
+  /// it), or hand off to [FindInPageScope.onOpenRequested] for a custom UI.
+  /// Bound to the controller in [initState]; the shortcut handler above and
+  /// a caller's own `controller.open()` both end up here.
+  void _handleControllerOpen() {
     if (!widget.showBar) {
       widget.onOpenRequested?.call();
       return;
@@ -238,8 +266,11 @@ class _FindInPageScopeState extends State<FindInPageScope> {
     }
   }
 
-  void _close() {
-    _controller.clearSearch();
+  /// What [FindInPageController.close] does beyond clearing the search and
+  /// setting `isOpen` to false: hide the built-in bar if it is showing.
+  /// Bound to the controller in [initState]; the close button, Escape, and
+  /// a caller's own `controller.close()` all end up here.
+  void _handleControllerClose() {
     if (_barVisible) {
       setState(() => _barVisible = false);
       _portal.hide();
@@ -257,7 +288,8 @@ class _FindInPageScopeState extends State<FindInPageScope> {
             alignment: widget.barAlignment,
             child: Padding(
               padding: const EdgeInsets.all(8),
-              child: FindBar(controller: _controller, onClose: _close),
+              child:
+                  FindBar(controller: _controller, onClose: _controller.close),
             ),
           ),
         ),

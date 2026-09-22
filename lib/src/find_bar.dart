@@ -30,6 +30,17 @@ final class FindBar extends StatefulWidget {
   final VoidCallback? onClose;
 
   /// Whether the query field grabs focus when the bar appears.
+  ///
+  /// Unlike a plain `TextField(autofocus: true)`, which only takes focus
+  /// when nothing in the enclosing `FocusScope` already has it, this moves
+  /// focus into the field regardless of what was focused before — a page
+  /// with a focused list or a focused `TextField` still lands keyboard
+  /// input in the query field. When this bar is later removed from the
+  /// tree (the built-in bar on close, or any other widget that stops
+  /// building it) while its field still has focus, Flutter returns focus to
+  /// whatever held it before, the same way it would for any focused widget
+  /// that disappears; if the user moved focus elsewhere first, it is left
+  /// there. Pass false to leave focus alone in both directions.
   final bool autofocus;
 
   /// Placeholder text for the query field.
@@ -81,6 +92,19 @@ class _FindBarState extends State<FindBar> {
   void initState() {
     super.initState();
     widget.controller.addListener(_syncFromController);
+    if (widget.autofocus) {
+      // TextField's own autofocus only takes focus when the enclosing
+      // FocusScope has none; requesting it directly here always wins, which
+      // is the point — see the autofocus dartdoc. Restoring focus on the
+      // way out needs no code of ours: disposing a FocusNode that still has
+      // primary focus already asks Flutter to refocus whatever was focused
+      // before it, via FocusNode.unfocus's default
+      // UnfocusDisposition.previouslyFocusedChild — the same mechanism any
+      // focused widget gets when it is removed from the tree.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
+    }
   }
 
   @override
@@ -96,6 +120,11 @@ class _FindBarState extends State<FindBar> {
   @override
   void dispose() {
     widget.controller.removeListener(_syncFromController);
+    // See the initState comment: if _focusNode still has primary focus here,
+    // Flutter itself moves focus back to whatever held it before as part of
+    // disposing a focused node, so there is nothing to do beyond disposing
+    // it. If the user moved focus elsewhere first, this node no longer has
+    // primary focus and nothing is moved.
     _text.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -139,7 +168,8 @@ class _FindBarState extends State<FindBar> {
                   child: TextField(
                     controller: _text,
                     focusNode: _focusNode,
-                    autofocus: widget.autofocus,
+                    // Focus is requested explicitly in initState instead of
+                    // through this flag; see the autofocus dartdoc for why.
                     decoration: InputDecoration(
                       hintText: widget.hintText,
                       isDense: true,

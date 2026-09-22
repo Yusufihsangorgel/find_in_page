@@ -1,3 +1,30 @@
+## 2.4.0
+
+- Opening the built-in bar now moves keyboard focus into its query field even
+  when something else already had focus. `TextField(autofocus: true)` only
+  takes focus when the enclosing `FocusScope` has none, so on a page with a
+  focused field or list the bar opened unfocused and had to be clicked.
+  `test/open_close_focus_test.dart` reproduces this with a focused
+  `TextField`.
+- Closing the bar (button, Escape, or `close()`) returns focus to the node
+  that had it before opening, if that node is still attached. If the user
+  moved focus elsewhere while find was open, focus stays where they put it.
+  Both cases are tested through Escape and `close()`.
+- Added `FindInPageController.isOpen`, `open()`, and `close()`. `isOpen`
+  tracks whether find is open (the built-in bar showing, or a custom UI told
+  to open) and is kept truthful whichever way find was opened or closed: the
+  shortcut, the close button, Escape, and the two new methods all go through
+  the same state. `open()` shows the built-in bar (and focuses it, as above)
+  or calls `onOpenRequested` for a custom UI; `close()` clears the search,
+  same as before, and hides the bar. Both are safe to call with no
+  `FindInPageScope` mounted, and a scope that disposes while open resets
+  `isOpen` on a controller it does not own. README shows using `close()`
+  from a `NavigatorObserver` so an app-level scope does not stay open after
+  navigating away, and watching `isOpen` elsewhere.
+- `FindInPageScope`'s dartdoc no longer says the scope "never takes or moves
+  focus"; that was only ever true of registering the shortcut, and is now
+  stated precisely alongside what opening and closing the bar do.
+
 ## 2.3.2
 
 - The example now builds for web and deploys to GitHub Pages, so the find bar

@@ -54,9 +54,18 @@ final class FindInPageController extends ChangeNotifier {
   int? _activeIndex;
   bool _recomputeScheduled = false;
   bool _disposed = false;
+  bool _isOpen = false;
+  VoidCallback? _openHandler;
+  VoidCallback? _closeHandler;
 
   /// The current search query. Empty when no search is active.
   String get query => _query;
+
+  /// Whether find is open: the enclosing scope's built-in bar is showing, or
+  /// a custom UI was told to open through [open].
+  ///
+  /// Changes notify listeners, like everything else on this controller.
+  bool get isOpen => _isOpen;
 
   /// Whether matching is case sensitive. Defaults to false.
   bool get caseSensitive => _caseSensitive;
@@ -97,6 +106,54 @@ final class FindInPageController extends ChangeNotifier {
 
   /// Clears the query, all matches, and the active match.
   void clearSearch() => search('');
+
+  /// Opens find and sets [isOpen] to true.
+  ///
+  /// With `FindInPageScope(showBar: true)` (the default) this shows the
+  /// scope's built-in bar and moves keyboard focus into its query field, the
+  /// same as pressing the find shortcut. With `showBar: false` it calls the
+  /// scope's `onOpenRequested` instead, so a custom find UI gets the same
+  /// signal the shortcut would have sent it. With no `FindInPageScope`
+  /// mounted for this controller, it only sets [isOpen].
+  void open() {
+    _setOpen(true);
+    _openHandler?.call();
+  }
+
+  /// Closes find: clears the search (like [clearSearch]), sets [isOpen] to
+  /// false, and hides the enclosing scope's built-in bar if it is showing.
+  ///
+  /// Safe to call when already closed, or with no `FindInPageScope` mounted
+  /// for this controller.
+  void close() {
+    clearSearch();
+    _setOpen(false);
+    _closeHandler?.call();
+  }
+
+  /// Lets the nearest `FindInPageScope` supply what [open] and [close] do
+  /// beyond flipping [isOpen]: showing or hiding its bar, or calling
+  /// `onOpenRequested`. The scope calls this while mounted and again with
+  /// two nulls when it disposes or swaps to a different controller; passing
+  /// two nulls also resets [isOpen] to false, since whatever bar this
+  /// controller was showing no longer exists.
+  // ignore: use_setters_to_change_properties
+  void setOpenCloseHandlers(VoidCallback? onOpen, VoidCallback? onClose) {
+    _openHandler = onOpen;
+    _closeHandler = onClose;
+    if (onOpen == null && onClose == null) _setOpen(false);
+  }
+
+  void _setOpen(bool value) {
+    // A scope's dispose() calls setOpenCloseHandlers(null, null) on a
+    // controller it was only handed, not necessarily one it owns; whoever
+    // does own it may already have called dispose, in which case this
+    // reset must stay quiet rather than hit ChangeNotifier's
+    // use-after-dispose assertion.
+    if (_disposed || _isOpen == value) return;
+    _isOpen = value;
+    notifyListeners();
+  }
 
   /// Makes the next match active (wrapping) and scrolls it into view.
   void next() {

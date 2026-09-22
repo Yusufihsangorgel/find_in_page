@@ -199,6 +199,54 @@ print('${controller.activeMatchIndex! + 1}/${controller.matchCount}');
 Highlight colors are per-widget: `FindableText(highlightColor: ...,
 activeHighlightColor: ...)`.
 
+## Closing on navigation, and watching whether find is open
+
+`FindInPageController` exposes `isOpen`, `open()` and `close()`. A scope placed
+once near the top of the app stays mounted across route changes, so its bar
+and query stay open after the user navigates away unless something closes it.
+
+Close it from a `NavigatorObserver`:
+
+```dart
+class CloseFindOnNavigate extends NavigatorObserver {
+  CloseFindOnNavigate(this.controller);
+  final FindInPageController controller;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      controller.close();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      controller.close();
+}
+
+MaterialApp(
+  navigatorObservers: [CloseFindOnNavigate(controller)],
+  home: FindInPageScope(controller: controller, child: ...),
+);
+```
+
+A router that is not `Navigator`-based can call `controller.close()` from
+whatever it exposes for route changes instead.
+
+`isOpen` stays accurate however find is opened or closed: the shortcut, the
+built-in bar's close button, Escape, `open()` and `close()` all update it.
+Watch it like anything else on the controller:
+
+```dart
+ListenableBuilder(
+  listenable: controller,
+  builder: (context, _) => IconButton(
+    icon: const Icon(Icons.search),
+    onPressed: controller.isOpen ? null : controller.open,
+  ),
+)
+```
+
+With `showBar: false`, `open()` calls `onOpenRequested`, the same signal the
+shortcut sends a custom find UI, and `close()` still clears the search.
+
 ## Custom searchable widgets
 
 Implement `FindableSource` in a `State` and register it:
