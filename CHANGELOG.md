@@ -1,7 +1,9 @@
-## 2.4.1
+## 2.5.0
 
-- Improve registration, removal, and discovery membership performance for
-  large source collections while preserving registration order.
+- Register and remove sources in linear time. The controller keeps registered
+  sources in a `LinkedHashSet` and still preserves registration order. A custom
+  `FindableSource` that overrides `==` must also override `hashCode`
+  consistently: equal sources need equal hash codes.
 - Fix incorrect match ranges and missing highlights in case-insensitive web
   searches involving `İ`. These searches now follow the existing VM behavior,
   including with `diacriticSensitive: true`.
