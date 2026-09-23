@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
@@ -24,6 +26,11 @@ final class FindMatch {
 /// `FindableText` implements this for you; implement it yourself to make a
 /// custom widget searchable, and register it with
 /// [FindInPageController.register].
+///
+/// Custom implementations that override `==` must provide a matching
+/// `hashCode`, keeping equality and hash values stable while registered.
+/// Equal sources must have equal hashes; identity-based implementations need
+/// no change.
 abstract interface class FindableSource {
   /// The plain text to search in.
   String get findableText;
@@ -42,7 +49,8 @@ final class FindInPageController extends ChangeNotifier {
   /// Creates a controller with no active search.
   FindInPageController();
 
-  final List<FindableSource> _sources = [];
+  final LinkedHashSet<FindableSource> _sources =
+      LinkedHashSet<FindableSource>();
   final List<FindMatch> _matches = [];
   final Map<FindableSource, List<FindMatch>> _matchesBySource = {};
   final Map<FindableSource, VoidCallback> _reveals = {};
@@ -186,8 +194,7 @@ final class FindInPageController extends ChangeNotifier {
   /// itself, typically by animating a `ScrollController`.
   /// `FindableListView` uses this to make off-screen items reachable.
   void register(FindableSource source, {VoidCallback? reveal}) {
-    if (_sources.contains(source)) return;
-    _sources.add(source);
+    if (!_sources.add(source)) return;
     if (reveal != null) _reveals[source] = reveal;
     if (_query.isNotEmpty) _scheduleRecompute();
   }

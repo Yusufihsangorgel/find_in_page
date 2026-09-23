@@ -1,5 +1,7 @@
 ## 2.4.1
 
+- Improve registration, removal, and discovery membership performance for
+  large source collections while preserving registration order.
 - Fix incorrect match ranges and missing highlights in case-insensitive web
   searches involving `İ`. These searches now follow the existing VM behavior,
   including with `diacriticSensitive: true`.
