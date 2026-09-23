@@ -237,15 +237,19 @@ void main() {
       final scaledExpected = _selectionRects(
         scaledParagraph,
         boundary,
-        const [TextSelection(baseOffset: 0, extentOffset: 5)],
-      ).single;
+        const [
+          TextSelection(baseOffset: 0, extentOffset: 5),
+          TextSelection(baseOffset: 11, extentOffset: 16),
+        ],
+      );
       final scaledPaint = (await tester.runAsync(
         () => _paintedColorBounds(boundary),
       ))!;
 
-      expect(scaledExpected.width, greaterThan(firstExpected.width));
-      expect(scaledExpected.height, greaterThan(firstExpected.height));
-      _expectRectClose(scaledPaint[_activeArgb]!, scaledExpected);
+      expect(scaledExpected[0].width, greaterThan(firstExpected.width));
+      expect(scaledExpected[0].height, greaterThan(firstExpected.height));
+      _expectRectClose(scaledPaint[_activeArgb]!, scaledExpected[0]);
+      _expectRectClose(scaledPaint[_inactiveArgb]!, scaledExpected[1]);
       expect(
         (scaledPaint[_activeArgb]!.width - firstExpected.width).abs(),
         greaterThan(_rectTolerance),
