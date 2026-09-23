@@ -74,10 +74,12 @@ final class FindInPageController extends ChangeNotifier {
   /// to false, so `resume` finds `résumé` and `diyarbakir` finds
   /// `Diyarbakır`.
   ///
-  /// The fold covers Latin-1 Supplement and Latin Extended-A and drops
-  /// combining marks, so a decomposed spelling matches its composed one. It
-  /// is named for the usual case but does a little more than accents: `ı`
-  /// folds to `i` and `ß` to `ss`, and neither of those is a diacritic.
+  /// The base-letter table covers Latin-1 Supplement and Latin Extended-A,
+  /// with capital sharp S (`ẞ`) as the single letter outside those ranges.
+  /// It drops combining marks only from U+0300 through U+036F. Casing uses
+  /// Dart's `String.toLowerCase`, which does not depend on the locale. It is
+  /// not general Unicode normalization or locale-specific collation. The fold
+  /// also maps `ı` to `i` and expands `ß` to `ss`; neither is a diacritic.
   bool get diacriticSensitive => _diacriticSensitive;
 
   /// Total number of matches across all sources.

@@ -5,11 +5,36 @@ and there is no Ctrl+F to press. Mobile has no find bar at all, and on Flutter
 web the browser's own bar searches a canvas that contains no text. This package
 puts one inside the app.
 
+Create an empty app with `flutter create --empty my_app`, run
+`flutter pub add find_in_page` inside it, then replace `lib/main.dart` with
+this complete program:
+
+<!-- readme-quickstart:start -->
 ```dart
 import 'package:find_in_page/find_in_page.dart';
+import 'package:flutter/material.dart';
 
-FindInPageScope(child: MyPage())
+void main() {
+  runApp(
+    const MaterialApp(
+      home: FindInPageScope(
+        child: Scaffold(
+          body: Column(
+            children: [
+              Text('The first plain text match.'),
+              Text('The second plain text match.'),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
 ```
+<!-- readme-quickstart:end -->
+
+Run `flutter run` in a desktop or web build and use a hardware keyboard to
+press Ctrl+F, or Cmd+F on macOS, to search the two plain `Text` widgets.
 
 ![A release-notes page with the find bar open: typing narrows the highlights while the arrow buttons jump between matches and scroll each one into view](https://raw.githubusercontent.com/Yusufihsangorgel/find_in_page/main/doc/demo.gif)
 
@@ -53,6 +78,14 @@ clearer to use than a find bar.
 That is the whole integration. Ctrl+F (Cmd+F on macOS) opens the bar, typing
 highlights every match, Enter and the arrow buttons move between them and
 scroll each into view, and Escape closes and clears.
+
+Matching uses literal substrings. Case sensitivity and diacritic sensitivity
+are independent, and case conversion is locale independent. Base-letter
+folding is limited to its documented Latin-1 Supplement and Latin Extended-A
+table, U+0300–U+036F combining marks, and the listed multi-letter expansions;
+it is not general Unicode normalization or locale-specific collation. Match
+offsets index UTF-16 code units in the original string, including matches that
+start inside a folded expansion; they are not grapheme offsets.
 
 ## Text you never wrapped
 
@@ -137,6 +170,11 @@ lets them.
 
 A `SelectionArea` wrapping the page is supported: both the selection highlight
 and the match highlight paint, and drag-select still works with the bar open.
+
+Discovered `Text` highlights follow ambient linear `TextScaler` values,
+including a scale change during an active search. `FindableText` forwards an
+explicit linear `textScaler` in both its plain and highlighted layouts, while
+custom active and inactive highlight colors remain applied.
 
 Two escape hatches. `ExcludeFromFind(child: ...)` keeps a subtree out, which is
 what a navigation rail or a footer wants, and

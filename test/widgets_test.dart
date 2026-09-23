@@ -357,5 +357,71 @@ void main() {
       await tester.tap(find.byTooltip('Close'));
       expect(closed, isTrue);
     });
+
+    testWidgets('submitting the query advances once and wraps', (tester) async {
+      tester.view.physicalSize = const Size(400, 500);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = FindInPageController();
+      addTearDown(controller.dispose);
+      final thirdMatchKey = GlobalKey();
+      final scrollController = ScrollController();
+      addTearDown(scrollController.dispose);
+
+      await tester.pumpWidget(_app(
+        FindInPageScope(
+          controller: controller,
+          child: SingleChildScrollView(
+            controller: scrollController,
+            child: Column(
+              children: [
+                const FindableText('target first'),
+                const SizedBox(height: 360),
+                const FindableText('target second'),
+                const SizedBox(height: 700),
+                FindableText('target third', key: thirdMatchKey),
+              ],
+            ),
+          ),
+        ),
+      ));
+
+      final viewportHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      expect(tester.getRect(find.byKey(thirdMatchKey)).top,
+          greaterThan(viewportHeight));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'target');
+      await tester.pump();
+      expect(controller.query, 'target');
+      expect(controller.activeMatchIndex, 0);
+      expect(find.text('1/3'), findsOneWidget);
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(controller.query, 'target');
+      expect(controller.activeMatchIndex, 1);
+      expect(find.text('2/3'), findsOneWidget);
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(controller.query, 'target');
+      expect(controller.activeMatchIndex, 2);
+      expect(find.text('3/3'), findsOneWidget);
+      final visibleThird = tester.getRect(find.byKey(thirdMatchKey));
+      expect(visibleThird.top, lessThan(viewportHeight));
+      expect(visibleThird.bottom, greaterThan(0));
+      expect(scrollController.offset, greaterThan(0));
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(controller.query, 'target');
+      expect(controller.activeMatchIndex, 0);
+      expect(find.text('1/3'), findsOneWidget);
+    });
   });
 }

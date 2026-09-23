@@ -364,5 +364,107 @@ void main() {
       await tester.pump();
       expect(controller.matchCount, 0, reason: 'case sensitivity is sticky');
     });
+
+    testWidgets(
+        'folding preserves case sensitivity and documented range boundaries',
+        (tester) async {
+      const istanbul = 'İSTANBUL i\u0307stanbul';
+      final controller = FindInPageController()
+        ..register(_TextSource(istanbul));
+      addTearDown(controller.dispose);
+
+      controller.search(
+        'ISTANBUL',
+        caseSensitive: true,
+        diacriticSensitive: false,
+      );
+      await tester.pump();
+      expect(controller.matchCount, 1);
+      expect(
+        istanbul.substring(
+          controller.activeMatch!.start,
+          controller.activeMatch!.end,
+        ),
+        'İSTANBUL',
+      );
+
+      controller.search('ISTANBUL', diacriticSensitive: true);
+      await tester.pump();
+      expect(controller.matchCount, 0);
+
+      controller.search('İSTANBUL');
+      await tester.pump();
+      expect(controller.matchCount, 1);
+
+      const outsideTable = <(String, String)>[
+        ('ǒ', 'o'),
+        ('ạ', 'a'),
+        ('ά', 'α'),
+        ('a\u1AB0b', 'ab'),
+      ];
+      for (final (text, query) in outsideTable) {
+        final boundaryController = FindInPageController()
+          ..register(_TextSource(text));
+        boundaryController.search(query);
+        await tester.pump();
+        expect(
+          boundaryController.matchCount,
+          0,
+          reason: '$text remains outside the base-letter table',
+        );
+        boundaryController.dispose();
+      }
+
+      const decomposed = 'a\u0323';
+      final combiningController = FindInPageController()
+        ..register(_TextSource(decomposed));
+      combiningController.search('a');
+      await tester.pump();
+      expect(combiningController.matchCount, 1);
+      expect(
+        decomposed.substring(
+          combiningController.activeMatch!.start,
+          combiningController.activeMatch!.end,
+        ),
+        decomposed,
+      );
+      combiningController.dispose();
+
+      for (final text in ['ǒ', 'ạ', 'ά', '\u1AB0']) {
+        final identityController = FindInPageController()
+          ..register(_TextSource(text));
+        identityController.search(text, caseSensitive: true);
+        await tester.pump();
+        expect(
+          identityController.matchCount,
+          1,
+          reason: 'identical unsupported text remains searchable',
+        );
+        identityController.dispose();
+      }
+    });
+
+    testWidgets(
+        'expanded matches preserve UTF-16 offsets after ZWJ and flag prefixes',
+        (tester) async {
+      const text = '👩‍💻 🇹🇷 Æ';
+      final controller = FindInPageController()..register(_TextSource(text));
+      addTearDown(controller.dispose);
+
+      for (final query in ['e', 'ae']) {
+        controller.search(query);
+        await tester.pump();
+
+        expect(controller.matchCount, 1, reason: 'query: $query');
+        final match = controller.activeMatch!;
+        expect(match.start, 11, reason: 'query: $query');
+        expect(match.end, 12, reason: 'query: $query');
+        expect(
+          text.substring(match.start, match.end),
+          'Æ',
+          reason: 'query: $query',
+        );
+      }
+    });
   });
 }
