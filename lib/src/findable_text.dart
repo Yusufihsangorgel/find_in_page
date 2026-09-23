@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import 'controller.dart';
@@ -92,7 +93,8 @@ final class FindableText extends StatefulWidget {
   State<FindableText> createState() => _FindableTextState();
 }
 
-class _FindableTextState extends State<FindableText> implements FindableSource {
+class _FindableTextState extends State<FindableText>
+    implements FindableSource, MatchRectangleReveal {
   FindInPageController? _controller;
 
   @override
@@ -100,6 +102,43 @@ class _FindableTextState extends State<FindableText> implements FindableSource {
 
   @override
   BuildContext? get findableContext => mounted ? context : null;
+
+  @override
+  void showMatchOnScreen(int start, int end) {
+    if (!mounted) return;
+    final paragraph = _paragraphInSubtree();
+    if (paragraph == null || !paragraph.attached || !paragraph.hasSize) return;
+    final textLength = paragraph.text.toPlainText().length;
+    if (start < 0 || end > textLength || start >= end) return;
+
+    final boxes = paragraph.getBoxesForSelection(
+      TextSelection(baseOffset: start, extentOffset: end),
+    );
+    paragraph.showOnScreen(
+      descendant: paragraph,
+      rect: boxes.isEmpty ? null : boxes.first.toRect(),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  RenderParagraph? _paragraphInSubtree() {
+    RenderParagraph? paragraph;
+    void visit(Element element) {
+      if (paragraph != null) return;
+      if (element is RenderObjectElement) {
+        final renderObject = element.renderObject;
+        if (renderObject is RenderParagraph) {
+          paragraph = renderObject;
+          return;
+        }
+      }
+      element.visitChildElements(visit);
+    }
+
+    context.visitChildElements(visit);
+    return paragraph;
+  }
 
   @override
   void didChangeDependencies() {

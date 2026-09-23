@@ -357,9 +357,9 @@ becomes active.
   `search(query, caseSensitive: true)` for exact case. Regex is planned.
 - Match order follows widget build order, which on a normal page is
   top-to-bottom visual order.
-- Navigation scrolls the widget containing the active match into view. In a
-  paragraph taller than the viewport the exact line can still be offscreen;
-  per-line precision is planned.
+- Navigation scrolls the matched line into view inside tall paragraphs and
+  scrolling boxes for discovered text and `FindableText`. A custom
+  `FindableSource` without a reveal callback scrolls its widget into view.
 - Matches clipped away by `maxLines` or `overflow` are counted and navigated
   to, but they cannot become visible.
 - `FindableListView` needs a fixed `itemExtent` and renders no highlights of

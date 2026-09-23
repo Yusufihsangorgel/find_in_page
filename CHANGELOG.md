@@ -1,5 +1,7 @@
 ## 2.5.0
 
+- `FindableText` now scrolls the matched line into view inside a tall
+  paragraph; discovered text already did.
 - Register and remove sources in linear time. The controller keeps registered
   sources in a `LinkedHashSet` and still preserves registration order. A custom
   `FindableSource` that overrides `==` must also override `hashCode`

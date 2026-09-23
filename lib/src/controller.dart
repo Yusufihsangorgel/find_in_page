@@ -40,6 +40,14 @@ abstract interface class FindableSource {
   BuildContext? get findableContext;
 }
 
+/// Internal reveal path for sources that can target a text range precisely.
+///
+/// This interface stays inside `src`; it is not part of the package exports.
+abstract interface class MatchRectangleReveal implements FindableSource {
+  /// Scrolls the first text box covering [start]..[end] into view.
+  void showMatchOnScreen(int start, int end);
+}
+
 /// Drives a find-in-page session: holds the query, computes matches across
 /// all registered sources, and tracks the active match.
 ///
@@ -323,6 +331,10 @@ final class FindInPageController extends ChangeNotifier {
       if (source is RenderedTextSource) {
         // No element to hand to Scrollable.ensureVisible, and aiming at the
         // matched characters beats aiming at the whole paragraph anyway.
+        source.showMatchOnScreen(match.start, match.end);
+        return;
+      }
+      if (source is MatchRectangleReveal) {
         source.showMatchOnScreen(match.start, match.end);
         return;
       }
