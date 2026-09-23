@@ -23,3 +23,4 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze
       - run: flutter test --exclude-tags demo
+      - run: flutter test --platform chrome test/case_folding_regression_test.dart

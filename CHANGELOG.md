@@ -1,3 +1,9 @@
+## 2.4.1
+
+- Fix incorrect match ranges and missing highlights in case-insensitive web
+  searches involving `İ`. These searches now follow the existing VM behavior,
+  including with `diacriticSensitive: true`.
+
 ## 2.4.0
 
 - Opening the built-in bar now moves keyboard focus into its query field even

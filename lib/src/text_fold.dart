@@ -75,11 +75,12 @@ FoldedText foldForSearch(
   required bool caseSensitive,
   required bool foldToBaseLetters,
 }) {
-  // Lowercasing never changes a string's UTF-16 length: no code point in
-  // Unicode has a longer simple lowercase mapping than itself, and Dart uses
-  // the simple mappings. Offsets in [cased] therefore still index [source],
-  // and only the base letter fold below can move them.
-  final cased = caseSensitive ? source : source.toLowerCase();
+  // The Dart VM lowercases U+0130 to one code unit, while web lowercasing
+  // expands it to `i` plus U+0307. Normalize it first to preserve the VM
+  // behavior on web and keep casing offsets aligned with [source].
+  final cased =
+      caseSensitive ? source : source.replaceAll('\u0130', 'I').toLowerCase();
+  assert(cased.length == source.length);
   if (!foldToBaseLetters) return FoldedText(cased, null);
 
   // Both stay null while the copy is still character-for-character identical,
