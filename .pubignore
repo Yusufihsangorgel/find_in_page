@@ -1,0 +1,10 @@
+.dart_tool/
+build/
+pubspec.lock
+.idea/
+.metadata
+.flutter-plugins*
+/AGENTS.md
+/llms.txt
+/FEASIBILITY-web-ctrl-f.md
+/tool/

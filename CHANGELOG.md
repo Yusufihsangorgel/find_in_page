@@ -9,6 +9,8 @@
 - Fix incorrect match ranges and missing highlights in case-insensitive web
   searches involving `İ`. These searches now follow the existing VM behavior,
   including with `diacriticSensitive: true`.
+- Leave repository-only notes and the figure scripts out of the published
+  package.
 
 ## 2.4.0
 
