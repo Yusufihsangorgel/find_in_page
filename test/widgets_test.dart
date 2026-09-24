@@ -27,6 +27,7 @@ void main() {
     testWidgets('registers with the scope and highlights matches',
         (tester) async {
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(_app(
         FindInPageScope(
           controller: controller,
@@ -48,6 +49,7 @@ void main() {
 
     testWidgets('active match uses the active highlight color', (tester) async {
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(_app(
         FindInPageScope(
           controller: controller,
@@ -80,6 +82,7 @@ void main() {
 
     testWidgets('unregisters on dispose', (tester) async {
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(_app(
         FindInPageScope(
           controller: controller,
@@ -104,6 +107,7 @@ void main() {
 
     testWidgets('updates matches when its text changes', (tester) async {
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       Widget build(String text) => _app(
             FindInPageScope(
               controller: controller,
@@ -132,6 +136,7 @@ void main() {
       // to seven letters and is six, so an offset taken from the folded copy
       // paints the wrong characters here, or throws out of substring.
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(_app(
         FindInPageScope(
           controller: controller,
@@ -148,7 +153,9 @@ void main() {
 
     testWidgets('scrolls the active match into view', (tester) async {
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       final scrollController = ScrollController();
+      addTearDown(scrollController.dispose);
       await tester.pumpWidget(_app(
         FindInPageScope(
           controller: controller,
@@ -175,6 +182,7 @@ void main() {
     testWidgets('Ctrl+F opens the bar, Escape closes it and clears',
         (tester) async {
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(_app(
         FindInPageScope(
           controller: controller,
@@ -205,6 +213,7 @@ void main() {
       // Regression: with the old Stack overlay, a small child collapsed the
       // bar to zero size, making it invisible and untappable.
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(_app(
         FindInPageScope(
           controller: controller,
@@ -231,6 +240,7 @@ void main() {
       // Regression: stale match offsets caused a substring RangeError on
       // the frame between a text change and the deferred recompute.
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       Widget build(String text) => _app(
             FindInPageScope(
               controller: controller,
@@ -252,6 +262,7 @@ void main() {
         'showBar: false routes the shortcut to onOpenRequested and '
         'Escape does not clear the search', (tester) async {
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       var opened = 0;
       await tester.pumpWidget(_app(
         FindInPageScope(
@@ -278,6 +289,7 @@ void main() {
 
     testWidgets('does not steal a user autofocus', (tester) async {
       final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
       await tester.pumpWidget(_app(
         FindInPageScope(
           child: Column(
@@ -298,6 +310,7 @@ void main() {
       addTearDown(tester.view.reset);
 
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(_app(
         FindInPageScope(
           controller: controller,
@@ -317,6 +330,7 @@ void main() {
     testWidgets('field reflects programmatic search when unfocused',
         (tester) async {
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       await tester.pumpWidget(_app(
         Column(
           children: [
@@ -332,6 +346,7 @@ void main() {
 
     testWidgets('bar buttons navigate and close', (tester) async {
       final controller = FindInPageController();
+      addTearDown(controller.dispose);
       var closed = false;
       await tester.pumpWidget(_app(
         Column(

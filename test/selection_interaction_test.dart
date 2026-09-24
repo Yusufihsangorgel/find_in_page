@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 
 /// Find paints on top of the text; Flutter's selection paints behind it.
 ///
@@ -18,6 +19,13 @@ const _findActive = Color(0xBB445566);
 const _selectionFill = Color(0xCC778899);
 
 const _haystack = 'needle in the needle stack';
+
+/// Flutter 3.41.2: when `paints` replays a paragraph with an active selection
+/// on its mock canvas, `_SelectableFragment.paint` creates `LeaderLayer`s that
+/// leak tracking reports as not disposed. Only the tests that select text
+/// ignore that one class; drop this once the framework stops creating them.
+final _selectionPaintLeaks =
+    LeakTesting.settings.withIgnored(classes: ['LeaderLayer']);
 
 Offset _caretOf(RenderParagraph paragraph, int offset) {
   const caret = Rect.fromLTWH(0, 0, 2, 20);
@@ -191,7 +199,7 @@ void main() {
       await tester.pump();
       expect(controller.activeMatchIndex, 1);
       _expectFindHighlights(_overlayOf(tester));
-    });
+    }, experimentalLeakTesting: _selectionPaintLeaks);
 
     testWidgets(
         'a SelectionArea outside the scope, the other ordinary wrapping, '
@@ -228,7 +236,7 @@ void main() {
       await tester.tap(find.byTooltip('Next match'));
       await tester.pump();
       expect(controller.activeMatchIndex, 1);
-    });
+    }, experimentalLeakTesting: _selectionPaintLeaks);
   });
 
   group('SelectableText', () {
@@ -291,6 +299,6 @@ void main() {
       await tester.pump();
       expect(controller.activeMatchIndex, 1);
       _expectFindHighlights(_overlayOf(tester));
-    });
+    }, experimentalLeakTesting: _selectionPaintLeaks);
   });
 }

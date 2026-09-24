@@ -147,6 +147,7 @@ void main() {
   ) async {
     const text = 'İstanbul ve İzmir';
     final controller = FindInPageController();
+    addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
