@@ -1,10 +1,11 @@
 /// Ctrl+F for Flutter: highlight matches across your widgets, navigate
 /// between them, and scroll the active match into view.
 ///
-/// Wrap a page in [FindInPageScope], replace searchable `Text` widgets
-/// with [FindableText], and press Ctrl+F (Cmd+F on macOS). On web that
-/// shortcut is intercepted when the browser allows it; see
-/// [FindInPageScope] for what happens when it does not.
+/// Wrap a page in [FindInPageScope] and press Ctrl+F (Cmd+F on macOS): the
+/// scope finds the text Flutter draws on its own and highlights matches with
+/// an overlay. [FindableText] is optional; it highlights inline by restyling
+/// the text itself. On web that shortcut is intercepted when the browser
+/// allows it; see [FindInPageScope] for what happens when it does not.
 library;
 
 export 'src/controller.dart'
