@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'package:flutter/foundation.dart' show kFlutterMemoryAllocationsEnabled;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
@@ -55,7 +56,11 @@ abstract interface class MatchRectangleReveal implements FindableSource {
 /// top-to-bottom visual order; matches and navigation follow that order.
 final class FindInPageController extends ChangeNotifier {
   /// Creates a controller with no active search.
-  FindInPageController();
+  FindInPageController() {
+    if (kFlutterMemoryAllocationsEnabled) {
+      ChangeNotifier.maybeDispatchObjectCreation(this);
+    }
+  }
 
   final LinkedHashSet<FindableSource> _sources =
       LinkedHashSet<FindableSource>();

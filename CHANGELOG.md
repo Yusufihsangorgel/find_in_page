@@ -9,6 +9,9 @@
 - Fix incorrect match ranges and missing highlights in case-insensitive web
   searches involving `İ`. These searches now follow the existing VM behavior,
   including with `diacriticSensitive: true`.
+- `FindInPageController` reports its creation to leak tracking from its
+  constructor: a controller nobody disposed shows up in leak-tracked tests even
+  if nothing ever listened to it.
 - Leave repository-only notes and the figure scripts out of the published
   package.
 

@@ -20,6 +20,7 @@ void main() {
       final controller = FindInPageController()
         ..register(_TextSource('the cat sat'))
         ..register(_TextSource('CAT scan cataract'));
+      addTearDown(controller.dispose);
 
       controller.search('cat');
       await tester.pump();
@@ -37,6 +38,7 @@ void main() {
 
     testWidgets('matches do not overlap', (tester) async {
       final controller = FindInPageController()..register(_TextSource('aaaa'));
+      addTearDown(controller.dispose);
       controller.search('aa');
       await tester.pump();
       expect(controller.matchCount, 2, reason: 'scanning resumes past a match');
@@ -50,6 +52,7 @@ void main() {
       const text = '🎉 café İstanbul cat here';
       final source = _TextSource(text);
       final controller = FindInPageController()..register(source);
+      addTearDown(controller.dispose);
 
       controller.search('cat');
       await tester.pump();
@@ -63,6 +66,7 @@ void main() {
         (tester) async {
       final controller = FindInPageController()
         ..register(_TextSource('the cat sat'));
+      addTearDown(controller.dispose);
 
       controller.search('cat');
       await tester.pump();
@@ -82,6 +86,7 @@ void main() {
     testWidgets('next and previous wrap around', (tester) async {
       final controller = FindInPageController()
         ..register(_TextSource('cat cat cat'));
+      addTearDown(controller.dispose);
       controller.search('cat');
       await tester.pump();
       expect(controller.matchCount, 3);
@@ -101,6 +106,7 @@ void main() {
         (tester) async {
       final source = _TextSource('cat cat cat');
       final controller = FindInPageController()..register(source);
+      addTearDown(controller.dispose);
       controller.search('cat');
       await tester.pump();
       controller.next();
@@ -117,6 +123,7 @@ void main() {
     testWidgets('unregistering a source drops its matches', (tester) async {
       final source = _TextSource('the cat sat');
       final controller = FindInPageController()..register(source);
+      addTearDown(controller.dispose);
       controller.search('cat');
       await tester.pump();
       expect(controller.matchCount, 1);
@@ -150,6 +157,7 @@ void main() {
 
       for (final (text, query) in pairs) {
         final controller = FindInPageController()..register(_TextSource(text));
+        addTearDown(controller.dispose);
         controller.search(query);
         await tester.pump();
         expect(controller.matchCount, 1, reason: '"$query" in "$text"');
@@ -163,6 +171,7 @@ void main() {
       // original text, start would be 5 and the slice would read " ca".
       const text = 'cafe\u0301 cat';
       final controller = FindInPageController()..register(_TextSource(text));
+      addTearDown(controller.dispose);
 
       controller.search('cat');
       await tester.pump();
@@ -179,6 +188,7 @@ void main() {
       // out of substring rather than merely highlighting the wrong word.
       const text = 'Straße cat';
       final controller = FindInPageController()..register(_TextSource(text));
+      addTearDown(controller.dispose);
 
       controller.search('cat');
       await tester.pump();
@@ -198,6 +208,7 @@ void main() {
       // that plainly contains it, and keeping both counts one letter twice.
       const text = 'Weiß';
       final controller = FindInPageController()..register(_TextSource(text));
+      addTearDown(controller.dispose);
 
       controller.search('s');
       await tester.pump();
@@ -240,6 +251,7 @@ void main() {
       // short of the letter that made it match.
       const text = 'Straße';
       final controller = FindInPageController()..register(_TextSource(text));
+      addTearDown(controller.dispose);
 
       controller.search('stras');
       await tester.pump();
@@ -259,6 +271,7 @@ void main() {
       // advancing, so this hangs rather than fails when the guard is missing.
       final controller = FindInPageController()
         ..register(_TextSource('cafe\u0301 cat'));
+      addTearDown(controller.dispose);
 
       controller.search('\u0301');
       await tester.pump();
@@ -273,6 +286,7 @@ void main() {
       // 6 unit string.
       const text = 'Straße';
       final controller = FindInPageController()..register(_TextSource(text));
+      addTearDown(controller.dispose);
 
       controller.search('strasse');
       await tester.pump();
@@ -290,6 +304,7 @@ void main() {
       // code units the fold leaves alone, the eszett is one that becomes two.
       const text = '🎉 Straße cat';
       final controller = FindInPageController()..register(_TextSource(text));
+      addTearDown(controller.dispose);
 
       controller.search('cat');
       await tester.pump();
@@ -310,6 +325,7 @@ void main() {
 
       for (final text in [composed, decomposed]) {
         final controller = FindInPageController()..register(_TextSource(text));
+        addTearDown(controller.dispose);
         controller.search('madchen');
         await tester.pump();
         expect(controller.matchCount, 1, reason: text.codeUnits.toString());
@@ -320,6 +336,7 @@ void main() {
         (tester) async {
       final controller = FindInPageController()
         ..register(_TextSource('r\u00e9sum\u00e9'));
+      addTearDown(controller.dispose);
 
       controller.search('resume', diacriticSensitive: true);
       await tester.pump();
@@ -334,6 +351,7 @@ void main() {
         (tester) async {
       final controller = FindInPageController()
         ..register(_TextSource('r\u00e9sum\u00e9 and resume'));
+      addTearDown(controller.dispose);
 
       controller.search('resume');
       await tester.pump();
@@ -355,6 +373,7 @@ void main() {
       // flags answer different questions and a user can want either one.
       final controller = FindInPageController()
         ..register(_TextSource('CAF\u00c9'));
+      addTearDown(controller.dispose);
 
       controller.search('CAFE', caseSensitive: true);
       await tester.pump();
