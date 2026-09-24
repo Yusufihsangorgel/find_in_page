@@ -20,10 +20,12 @@ const _selectionFill = Color(0xCC778899);
 
 const _haystack = 'needle in the needle stack';
 
-/// Flutter 3.41.2: when `paints` replays a paragraph with an active selection
-/// on its mock canvas, `_SelectableFragment.paint` creates `LeaderLayer`s that
-/// leak tracking reports as not disposed. Only the tests that select text
-/// ignore that one class; drop this once the framework stops creating them.
+/// Flutter 3.41.2: when `paints` replays an active selection on its mock
+/// canvas, the framework creates `LeaderLayer`s for the selection handles that
+/// leak tracking reports as not disposed: `_SelectableFragment.paint` under a
+/// `SelectionArea` and `RenderEditable._paintHandleLayers` for a
+/// `SelectableText`. Only the tests that select text ignore that one class;
+/// drop this once the framework stops creating them there.
 final _selectionPaintLeaks =
     LeakTesting.settings.withIgnored(classes: ['LeaderLayer']);
 
