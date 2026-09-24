@@ -8,11 +8,11 @@ repository: https://github.com/Yusufihsangorgel/find_in_page
 issue_tracker: https://github.com/Yusufihsangorgel/find_in_page/issues
 
 topics:
-  - search
   - find
   - highlight
-  - text
-  - widgets
+  - find-in-page
+  - text-search
+  - ctrl-f
 
 # pub.dev serves screenshots out of the archive and fits the first one into a
 # 190x190 card thumbnail without cropping, so the close-to-square capture leads
