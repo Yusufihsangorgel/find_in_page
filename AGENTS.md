@@ -72,3 +72,7 @@ On Flutter web, returning handled is what the engine maps to `keydown.preventDef
 - `example/lib/main.dart` — eager page and 2,000-row `FindableListView`
 - `test/` — regular suite: `flutter test --exclude-tags demo`. A bare `flutter test` also runs `test/demo_capture_test.dart`, which is tagged `demo`; run that capture deliberately with `flutter test --tags demo test/demo_capture_test.dart`
 - example: `cd example && flutter run`; the web build is deployed at <https://yusufihsangorgel.github.io/find_in_page/>
+
+## Contributing
+
+Before changing this repository, read [CONTRIBUTING.md](CONTRIBUTING.md), [package engineering rules](docs/engineering/package.md), and the [debt register](docs/engineering/debt.json). These requirements apply to every contributor. The usage guidance above remains the consumer contract.
