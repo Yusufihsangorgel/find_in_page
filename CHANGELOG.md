@@ -11,6 +11,11 @@
   registration order is unchanged.
 - `FindInPageController.register` accepts an optional `anchor` context that
   places a source on the page.
+- Highlights for text you did not wrap are clipped to where the text is
+  visible. A match scrolled under the app bar or out of a scroll view no
+  longer paints an empty box over other content.
+- The web demo shows a loading screen while it downloads, with a link to the
+  package page if it fails to load.
 - README: the custom UI example no longer throws when nothing matches, and the
   comparison no longer quotes download counts.
 

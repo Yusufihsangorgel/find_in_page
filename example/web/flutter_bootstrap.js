@@ -4,9 +4,18 @@
 const loadingScreen = document.getElementById('loading-screen');
 const loadingMessage = document.getElementById('loading-message');
 
+function onScriptError(event) {
+  const target = event.target;
+  if (target && target.tagName === 'SCRIPT') showLoadingError();
+}
+
 function stopWatchingErrors() {
-  window.removeEventListener('error', showLoadingError, true);
-  window.removeEventListener('unhandledrejection', showLoadingError);
+  window.removeEventListener('error', onScriptError, true);
+}
+
+function removeLoadingScreen() {
+  stopWatchingErrors();
+  if (loadingScreen) loadingScreen.remove();
 }
 
 function showLoadingError() {
@@ -22,22 +31,17 @@ function showLoadingError() {
   if (indicator) indicator.remove();
 }
 
-window.addEventListener('error', showLoadingError, true);
-window.addEventListener('unhandledrejection', showLoadingError);
+window.addEventListener('error', onScriptError, true);
 
-try {
-  _flutter.loader.load({
-    onEntrypointLoaded: async function(engineInitializer) {
-      try {
-        const appRunner = await engineInitializer.initializeEngine();
-        await appRunner.runApp();
-        stopWatchingErrors();
-        if (loadingScreen) loadingScreen.remove();
-      } catch (error) {
-        showLoadingError();
-      }
+_flutter.loader.load({
+  onEntrypointLoaded: async function(engineInitializer) {
+    try {
+      const appRunner = await engineInitializer.initializeEngine();
+      window.addEventListener('flutter-first-frame', removeLoadingScreen, { once: true });
+      await appRunner.runApp();
+    } catch (error) {
+      console.error(error);
+      showLoadingError();
     }
-  });
-} catch (error) {
-  showLoadingError();
-}
+  }
+}).catch(showLoadingError);

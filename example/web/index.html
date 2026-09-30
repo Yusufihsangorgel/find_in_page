@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -17,6 +17,7 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Live demo of find_in_page: an in-app find bar for Flutter that highlights matches in text you never wrapped, including lazy-list rows that were never built.">
 
@@ -94,16 +95,23 @@
       }
     }
   </style>
+  <noscript>
+    <style>
+      #loading-message, #loading-indicator {
+        display: none;
+      }
+    </style>
+  </noscript>
 </head>
 <body>
-  <main id="loading-screen" role="status" aria-live="polite">
+  <main id="loading-screen">
     <div>
       <h1>find_in_page</h1>
-      <p id="loading-message">Loading the demo…</p>
+      <p id="loading-message" role="status">Loading the demo…</p>
+      <noscript><p>This demo needs JavaScript to run.</p></noscript>
       <div id="loading-indicator" aria-hidden="true"></div>
     </div>
   </main>
-  <noscript>This demo needs JavaScript to run.</noscript>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
