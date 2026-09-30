@@ -29,13 +29,32 @@ is exactly the range `didFinishLayout` reports through
 `_childElements.firstKey()` and `lastKey()` (`widgets/sliver.dart:1221`). No
 tree walk can see rows Flutter never built.
 
-**Instead of the highlighting packages.** `substring_highlight`
-(`lib/substring_highlight.dart:8`) and `highlight_text`
+**Instead of the highlighting packages.** [`substring_highlight`]
+(`lib/substring_highlight.dart:8`) and [`highlight_text`]
 (`lib/src/highlight_text.dart:32`) are both a `StatelessWidget` that colors
 matched substrings. Neither has a match count, a current match, or a
 `ScrollController`, so neither can report "3 of 17" or bring the next hit into
 view. This package adds the page-wide match count and navigation between
 matches.
+
+Choosing between this package and `substring_highlight`:
+
+| You need | Better pick |
+|---|---|
+| A match counter, previous and next buttons, and scrolling to the active match | `find_in_page` |
+| Highlights inside `Text` you did not write, such as an `AppBar` title, a `DataTable` cell or a widget from another package | `find_in_page` |
+| Matches in `ListView.builder` rows that are not built | `find_in_page`, with `FindableListView` |
+| A term typed without accents to match accented text (`resume` finds `résumé`) | `find_in_page`, which folds accents unless you pass `diacriticSensitive: true`. `substring_highlight` compares lowercased text only |
+| One string painted with a term you already have, such as suggestion rows under a search box | `substring_highlight`: a single stateless widget with no scope and no controller |
+| Several terms at once, or whole words only | `substring_highlight` (`terms` and `words`, and its source marks `words` as alpha). `find_in_page` searches one query string and has no word mode |
+| Matched text that changes color or gets underlined, not just a background | `substring_highlight` (`textStyleHighlight` takes any `TextStyle`). `FindableText` sets only a background color |
+
+Moving from `substring_highlight`? The
+[migration guide](https://github.com/Yusufihsangorgel/find_in_page/blob/main/doc/migrating-from-substring_highlight.md)
+maps its parameters to this package's and lists what does not carry over.
+
+[`substring_highlight`]: https://pub.dev/packages/substring_highlight
+[`highlight_text`]: https://pub.dev/packages/highlight_text
 
 **Reach for it when**
 
@@ -77,14 +96,6 @@ That figure comes out of a test run rather than a drawing tool.
 `tool/searchable_grid.dart` builds those four widgets, types into the real find
 bar, and every highlight you can see was painted by the package during the
 capture. `tool/searchable_grid.sh` regenerates it.
-
-The nearest packages on pub.dev answer a smaller question.
-[`substring_highlight`] and [`highlight_text`] take a string you already have
-and restyle the parts that match. You rewrite the widget, you supply the text,
-and neither one counts matches across a page or moves the viewport.
-
-[`substring_highlight`]: https://pub.dev/packages/substring_highlight
-[`highlight_text`]: https://pub.dev/packages/highlight_text
 
 ## Web
 

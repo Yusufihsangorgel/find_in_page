@@ -18,6 +18,9 @@
   package page if it fails to load.
 - README: the custom UI example no longer throws when nothing matches, and the
   comparison no longer quotes download counts.
+- README: a table says when `substring_highlight` is the better choice, and
+  `doc/migrating-from-substring_highlight.md` maps its parameters to this
+  package's.
 
 ## 2.4.0
 
