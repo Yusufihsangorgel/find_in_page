@@ -172,7 +172,11 @@ class _FindableListViewState extends State<FindableListView> {
     _controller = next;
     if (next != null) {
       for (var i = 0; i < _records.length; i++) {
-        next.register(_records[i], reveal: () => _revealIndex(i));
+        next.register(
+          _records[i],
+          reveal: () => _revealIndex(i),
+          anchor: context,
+        );
       }
     }
   }
@@ -182,7 +186,11 @@ class _FindableListViewState extends State<FindableListView> {
       final index = _records.length;
       final record = FindableRecord(widget.findableTextOf(index));
       _records.add(record);
-      _controller?.register(record, reveal: () => _revealIndex(index));
+      _controller?.register(
+        record,
+        reveal: () => _revealIndex(index),
+        anchor: context,
+      );
     }
   }
 

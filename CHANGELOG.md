@@ -1,3 +1,19 @@
+## 2.5.0
+
+- Match navigation now follows the page from top to bottom when registered
+  and automatically discovered text share a page. An app bar title comes
+  before the body, including in a `Scaffold` with a `drawer` or `endDrawer`.
+  Side-by-side or overlapping content keeps the order the widgets were built
+  in. This includes a body that extends behind the app bar with
+  `extendBodyBehindAppBar`. `FindableListView` rows stay together at the
+  list's position, including rows that have not been built. Registered
+  sources without an anchor on the page still come first. With discovery off,
+  registration order is unchanged.
+- `FindInPageController.register` accepts an optional `anchor` context that
+  places a source on the page.
+- README: the custom UI example no longer throws when nothing matches, and the
+  comparison no longer quotes download counts.
+
 ## 2.4.0
 
 - Opening the built-in bar now moves keyboard focus into its query field even

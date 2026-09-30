@@ -36,8 +36,12 @@ abstract interface class FindableSource {
 /// Drives a find-in-page session: holds the query, computes matches across
 /// all registered sources, and tracks the active match.
 ///
-/// Sources register themselves in build order, which for a typical page is
-/// top-to-bottom visual order; matches and navigation follow that order.
+/// With discovery on, matches and navigation follow the page from top to
+/// bottom, including registered sources at their anchors. Side-by-side or
+/// overlapping content keeps the order the widgets were built in. That
+/// includes a body extended behind the app bar with `extendBodyBehindAppBar`.
+/// Sources with no anchor in the searched subtree come first in registration
+/// order. With discovery off, registration order is used throughout.
 final class FindInPageController extends ChangeNotifier {
   /// Creates a controller with no active search.
   FindInPageController();
@@ -46,6 +50,7 @@ final class FindInPageController extends ChangeNotifier {
   final List<FindMatch> _matches = [];
   final Map<FindableSource, List<FindMatch>> _matchesBySource = {};
   final Map<FindableSource, VoidCallback> _reveals = {};
+  final Map<FindableSource, BuildContext> _anchors = {};
   List<FindableSource> Function()? _discover;
   List<FindableSource> _discovered = const [];
   String _query = '';
@@ -183,10 +188,22 @@ final class FindInPageController extends ChangeNotifier {
   /// becomes active, and is responsible for bringing the source into view
   /// itself, typically by animating a `ScrollController`.
   /// `FindableListView` uses this to make off-screen items reachable.
-  void register(FindableSource source, {VoidCallback? reveal}) {
+  ///
+  /// With discovery on, [anchor] places [source] at its render object's
+  /// position on the page. Without it, [source]'s `findableContext` supplies
+  /// that position. The render object is resolved at recompute time, after
+  /// layout. Placed sources follow the page from top to bottom, and
+  /// side-by-side or overlapping ones keep build order. A source with no
+  /// anchor in the searched subtree comes first, in registration order.
+  void register(
+    FindableSource source, {
+    VoidCallback? reveal,
+    BuildContext? anchor,
+  }) {
     if (_sources.contains(source)) return;
     _sources.add(source);
     if (reveal != null) _reveals[source] = reveal;
+    if (anchor != null) _anchors[source] = anchor;
     if (_query.isNotEmpty) _scheduleRecompute();
   }
 
@@ -197,6 +214,12 @@ final class FindInPageController extends ChangeNotifier {
   /// is on screen right now. Passing null turns automatic discovery off and
   /// leaves only explicitly registered sources, which is what
   /// `FindInPageScope(autoDiscover: false)` does.
+  ///
+  /// When the scope supplies positions, registered and discovered sources are
+  /// ordered together from the top of the page to the bottom, and side-by-side
+  /// or overlapping content keeps build order. A source with an unresolved or
+  /// out-of-tree anchor comes first in registration order. Without discovery,
+  /// registration order stays unchanged.
   ///
   /// Explicit registration wins: a paragraph that belongs to a registered
   /// source is not reported twice.
@@ -220,6 +243,7 @@ final class FindInPageController extends ChangeNotifier {
   /// Removes [source] from the search domain.
   void unregister(FindableSource source) {
     _reveals.remove(source);
+    _anchors.remove(source);
     if (_sources.remove(source) && _query.isNotEmpty) _scheduleRecompute();
   }
 
@@ -248,9 +272,10 @@ final class FindInPageController extends ChangeNotifier {
   void _recompute({bool resetActive = false}) {
     _matches.clear();
     _matchesBySource.clear();
-    _discovered = _query.isEmpty || _discover == null
+    final sweep = _query.isEmpty ? null : _discover?.call();
+    _discovered = sweep == null
         ? const []
-        : _discover!().where((s) => !_sources.contains(s)).toList();
+        : sweep.where((s) => !_sources.contains(s)).toList();
     final needle = _query.isEmpty
         ? ''
         : foldForSearch(
@@ -261,7 +286,37 @@ final class FindInPageController extends ChangeNotifier {
     // A query of nothing but combining marks is not empty, but folds to a
     // string that is. indexOf finds that at every offset and never advances.
     if (needle.isNotEmpty) {
-      for (final source in [..._sources, ..._discovered]) {
+      final sources = <FindableSource>[..._sources, ..._discovered];
+      if (sweep is DiscoveredTextSources) {
+        final placed = <({FindableSource source, int position, int index})>[];
+        for (var i = 0; i < sources.length; i++) {
+          final source = sources[i];
+          RenderObject? node;
+          if (i < _sources.length) {
+            final context = _anchors[source] ?? source.findableContext;
+            if (context != null && context.mounted) {
+              node = context.findRenderObject();
+            }
+          } else if (source is RenderedTextSource) {
+            node = source.renderObject;
+          }
+          placed.add((
+            source: source,
+            position: sweep.positions[node] ?? -1,
+            index: i,
+          ));
+        }
+        // The index preserves registration order for sources sharing an
+        // anchor, including those with no reachable anchor.
+        placed.sort((a, b) {
+          final byPosition = a.position.compareTo(b.position);
+          return byPosition != 0 ? byPosition : a.index.compareTo(b.index);
+        });
+        sources
+          ..clear()
+          ..addAll(placed.map((entry) => entry.source));
+      }
+      for (final source in sources) {
         final haystack = foldForSearch(
           source.findableText,
           caseSensitive: _caseSensitive,

@@ -34,8 +34,8 @@ tree walk can see rows Flutter never built.
 (`lib/src/highlight_text.dart:32`) are both a `StatelessWidget` that colors
 matched substrings. Neither has a match count, a current match, or a
 `ScrollController`, so neither can report "3 of 17" or bring the next hit into
-view. This is a quiet category rather than a contested one: they draw about
-57k and 14k downloads a month, and no Ctrl+F-style incumbent exists.
+view. This package adds the page-wide match count and navigation between
+matches.
 
 **Reach for it when**
 
@@ -193,7 +193,8 @@ FindInPageScope(
 // Anywhere:
 controller.search('flutter');   // highlights all matches
 controller.next();              // moves and scrolls to the next one
-print('${controller.activeMatchIndex! + 1}/${controller.matchCount}');
+final active = controller.activeMatchIndex; // null when nothing matches
+print(active == null ? 'No matches' : '${active + 1}/${controller.matchCount}');
 ```
 
 Highlight colors are per-widget: `FindableText(highlightColor: ...,
@@ -317,8 +318,12 @@ becomes active.
 
 - Matching is plain text and case insensitive by default; pass
   `search(query, caseSensitive: true)` for exact case. Regex is planned.
-- Match order follows widget build order, which on a normal page is
-  top-to-bottom visual order.
+- With automatic discovery on, matches follow the page from top to bottom,
+  including registered sources and lazy-list rows at their place. Side-by-side
+  or overlapping content keeps the order the widgets were built in, which
+  includes a body extended behind the app bar with `extendBodyBehindAppBar`. A
+  registered source with no anchor on the page comes first. With discovery
+  off, matches follow registration order.
 - Navigation scrolls the widget containing the active match into view. In a
   paragraph taller than the viewport the exact line can still be offscreen;
   per-line precision is planned.

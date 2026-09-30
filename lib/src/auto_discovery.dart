@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -141,6 +143,120 @@ bool _hasReadableText(String text) {
   return false;
 }
 
+/// Orders [children] from the top of the page to the bottom.
+///
+/// Children that overlap vertically form a group and keep their child-list
+/// order inside it. That covers a label beside a taller value and an overlay
+/// stacked on content, which are visited in the order the widgets were built.
+/// Groups follow each other by top edge. A `Scaffold` builds its body before
+/// its app bar because the bar paints on top. This puts the bar back in front
+/// of the body.
+///
+/// A `Scaffold` lays out `drawer` and `endDrawer` over the whole screen even
+/// while they are closed. Their boxes overlap the app bar and the body, and
+/// would join the two into one group in build order. Children of a custom
+/// multi-child layout with a drawer slot id are set aside instead. They are
+/// visited last, in child-list order. A body that extends behind the app
+/// bar with `extendBodyBehindAppBar` still overlaps it and keeps build order.
+///
+/// The child list is returned unchanged unless every child is an attached
+/// [RenderBox] with a finite size and position. That leaves slivers, viewports
+/// and children that have not been laid out in child-list order. It is also
+/// returned unchanged if a transform cannot be computed for a child.
+List<RenderObject> _inVisualOrder(
+  RenderObject parent,
+  List<RenderObject> children,
+) {
+  if (children.length < 2) return children;
+  final bounds = <Rect>[];
+  for (final child in children) {
+    if (child is! RenderBox || !child.attached || !child.hasSize) {
+      return children;
+    }
+    final Rect rect;
+    try {
+      rect = MatrixUtils.transformRect(
+        child.getTransformTo(null),
+        Offset.zero & child.size,
+      );
+    } catch (_) {
+      // An unusual sliver ancestor can refuse to report a transform. Losing the
+      // ordering for this node is better than losing the whole search.
+      return children;
+    }
+    if (!rect.isFinite) return children;
+    bounds.add(rect);
+  }
+  final backdrops = <int>{};
+  if (parent is RenderCustomMultiChildLayoutBox) {
+    for (var i = 0; i < children.length; i++) {
+      final data = children[i].parentData;
+      if (data is MultiChildLayoutParentData &&
+          data.id.toString().toLowerCase().endsWith('drawer')) {
+        backdrops.add(i);
+      }
+    }
+  }
+  final byTop = <int>[
+    for (var i = 0; i < children.length; i++)
+      if (!backdrops.contains(i)) i,
+  ]..sort((a, b) {
+      final top = bounds[a].top.compareTo(bounds[b].top);
+      return top != 0 ? top : a.compareTo(b);
+    });
+  final ordered = <RenderObject>[];
+  final group = <int>[];
+  var groupBottom = double.negativeInfinity;
+  void flush() {
+    group.sort();
+    for (final index in group) {
+      ordered.add(children[index]);
+    }
+    group.clear();
+  }
+
+  for (final index in byTop) {
+    if (group.isNotEmpty && bounds[index].top >= groupBottom) {
+      flush();
+      groupBottom = double.negativeInfinity;
+    }
+    group.add(index);
+    if (bounds[index].bottom > groupBottom) groupBottom = bounds[index].bottom;
+  }
+  flush();
+  for (final index in backdrops.toList()..sort()) {
+    ordered.add(children[index]);
+  }
+  return ordered;
+}
+
+/// A sweep's text and the positions used to order all sources.
+///
+/// This remains a list so callers that only need discovered text can use it
+/// as before. [positions] numbers render objects in the order the sweep
+/// visited them, which is top to bottom where children are laid out as boxes.
+/// It also includes nodes inside excluded subtrees, where registered sources
+/// may have their anchors.
+final class DiscoveredTextSources extends ListBase<RenderedTextSource> {
+  DiscoveredTextSources(this._sources, this.positions);
+
+  final List<RenderedTextSource> _sources;
+  final Map<RenderObject, int> positions;
+
+  @override
+  int get length => _sources.length;
+
+  @override
+  set length(int value) => throw UnsupportedError('Cannot change a sweep');
+
+  @override
+  RenderedTextSource operator [](int index) => _sources[index];
+
+  @override
+  void operator []=(int index, RenderedTextSource value) =>
+      throw UnsupportedError('Cannot change a sweep');
+}
+
 /// Finds the text currently rendered under [root].
 ///
 /// Reuses the source already held for a render object so that repeated sweeps
@@ -151,7 +267,7 @@ bool _hasReadableText(String text) {
 /// [ExcludeFromFind], which is how a widget keeps ownership of its own text.
 /// Text that has scrolled out of a lazy list is not here at all, because it
 /// does not exist yet; `FindableListView` covers that case and the two compose.
-List<RenderedTextSource> discoverTextSources(
+DiscoveredTextSources discoverTextSources(
   RenderObject root, {
   Iterable<RenderedTextSource> previous = const [],
 }) {
@@ -159,6 +275,7 @@ List<RenderedTextSource> discoverTextSources(
     for (final source in previous) source.renderObject: source,
   };
   final found = <RenderedTextSource>[];
+  final positions = <RenderObject, int>{};
 
   void add(RenderBox node, RenderedTextSource Function() create) {
     if (!node.hasSize) return;
@@ -167,23 +284,29 @@ List<RenderedTextSource> discoverTextSources(
     found.add(source);
   }
 
-  void visit(RenderObject node) {
-    // A widget that reports its own text owns its whole subtree, and so does
-    // anything the app asked to keep out of find. Descending would count those
-    // matches twice, or count text the reader did not ask about.
-    if (node is RenderExcludeFromFind) return;
-    switch (node) {
-      case final RenderParagraph paragraph:
-        add(paragraph, () => ParagraphSource(paragraph));
-      case final RenderEditable editable
-          when editable.readOnly && !editable.obscureText:
-        add(editable, () => ReadOnlyEditableSource(editable));
-      default:
-        break;
+  void visit(RenderObject node, bool excluded) {
+    positions[node] = positions.length;
+    // Excluded text still has a place in the page. Walk through it so an
+    // explicitly registered source can use its render object as an anchor.
+    final skipText = excluded || node is RenderExcludeFromFind;
+    if (!skipText) {
+      switch (node) {
+        case final RenderParagraph paragraph:
+          add(paragraph, () => ParagraphSource(paragraph));
+        case final RenderEditable editable
+            when editable.readOnly && !editable.obscureText:
+          add(editable, () => ReadOnlyEditableSource(editable));
+        default:
+          break;
+      }
     }
-    node.visitChildren(visit);
+    final children = <RenderObject>[];
+    node.visitChildren(children.add);
+    for (final child in _inVisualOrder(node, children)) {
+      visit(child, skipText);
+    }
   }
 
-  visit(root);
-  return found;
+  visit(root, false);
+  return DiscoveredTextSources(found, positions);
 }
