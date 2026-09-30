@@ -9,10 +9,14 @@ import 'controller.dart';
 /// `FindableText` highlights by restyling its own spans, which is sharper and
 /// composes with the text's own decoration. That is not available for text
 /// belonging to widgets we do not own, so those matches are drawn on top
-/// instead, the way a browser draws its own find highlights.
+/// instead, as a browser draws its own find highlights.
 ///
-/// Sits directly above the searched subtree, so the rectangles it paints are
-/// clipped by the same scroll viewports that clip the text.
+/// Sits directly above the searched subtree and therefore has to do its own
+/// clipping. Before painting a match it works out where the text is visible,
+/// by walking from the text's render object up to this layer and intersecting
+/// the clip each ancestor reports. A match scrolled out of a viewport, or
+/// hidden by any other clip above it, paints nothing. A match cut by a clip
+/// paints only the part that shows.
 final class HighlightOverlay extends StatefulWidget {
   /// Wraps [child] in a layer that paints highlights for [controller].
   const HighlightOverlay({
@@ -149,6 +153,35 @@ class RenderHighlightOverlay extends RenderProxyBox {
     super.detach();
   }
 
+  /// Where [source] is visible, in this layer's coordinates.
+  ///
+  /// The highlights are painted here, above the searched subtree. The clips
+  /// that hide the text (a scroll viewport, a `ClipRect`) do not apply to them
+  /// unless we apply them ourselves. Returns null when nothing of the source
+  /// shows, or when it is not below this layer at all.
+  Rect? _visibleRegionOf(RenderObject source) {
+    var region = Offset.zero & size;
+    var child = source;
+    while (!identical(child, this)) {
+      final parent = child.parent;
+      if (parent is! RenderObject) return null;
+      final clip = parent.describeApproximatePaintClip(child);
+      if (clip != null) {
+        final mapped = MatrixUtils.transformRect(
+          parent.getTransformTo(this),
+          clip,
+        );
+        // A singular transform gives a rect that is not a number. Nothing
+        // can be said to be visible through it.
+        if (!mapped.isFinite) return null;
+        region = region.intersect(mapped);
+        if (region.isEmpty) return null;
+      }
+      child = parent;
+    }
+    return region;
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
     super.paint(context, offset);
@@ -164,15 +197,22 @@ class RenderHighlightOverlay extends RenderProxyBox {
     canvas.translate(offset.dx, offset.dy);
     for (final source in sources) {
       if (source is! RenderedTextSource) continue;
-      for (final match in _controller.matchesFor(source)) {
+      final matches = _controller.matchesFor(source);
+      if (matches.isEmpty) continue;
+      final visible = _visibleRegionOf(source.renderObject);
+      if (visible == null) continue;
+      for (final match in matches) {
         final active = _controller.isActive(match);
         for (final rect in source.boxesFor(match.start, match.end, this)) {
           // A zero-area box means the paragraph relaid out between the sweep
-          // and this frame; skip rather than paint a sliver at the origin.
-          if (rect.isEmpty) continue;
+          // and this frame. Skip it instead of painting a sliver at the origin.
+          // Empty is false for NaN. A box from a bad transform needs its own
+          // check.
+          if (!rect.isFinite || rect.isEmpty) continue;
+          if (rect.intersect(visible).isEmpty) continue;
           canvas.drawRRect(
             RRect.fromRectAndRadius(
-              rect.inflate(1),
+              rect.inflate(1).intersect(visible),
               const Radius.circular(2),
             ),
             active ? activeFill : fill,
