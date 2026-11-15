@@ -75,12 +75,17 @@ FoldedText foldForSearch(
   required bool caseSensitive,
   required bool foldToBaseLetters,
 }) {
-  // Lowercasing never changes a string's UTF-16 length: no code point in
-  // Unicode has a longer simple lowercase mapping than itself, and Dart uses
-  // the simple mappings. Offsets in [cased] therefore still index [source],
-  // and only the base letter fold below can move them.
+  // Lowercasing can make a string longer. The Dart VM uses the simple case
+  // mappings, where no letter changes length, but on the web lowercasing is
+  // JavaScript's, which uses the full mappings and turns the dotted capital I
+  // into an i followed by a combining dot above. No letter gets shorter on
+  // either, so a copy of the same length still lines up with [source], and
+  // only a longer one needs a map back to it.
   final cased = caseSensitive ? source : source.toLowerCase();
-  if (!foldToBaseLetters) return FoldedText(cased, null);
+  final casedToSource = cased.length == source.length
+      ? null
+      : _lowercaseOffsets(source, cased);
+  if (!foldToBaseLetters) return FoldedText(cased, casedToSource);
 
   // Both stay null while the copy is still character-for-character identical,
   // so an all-ASCII page allocates neither.
@@ -108,9 +113,43 @@ FoldedText foldForSearch(
     }
   }
 
-  if (folded == null) return FoldedText(cased, null);
+  if (folded == null) return FoldedText(cased, casedToSource);
   map?.add(cased.length);
-  return FoldedText(folded.toString(), map);
+  // The map so far leads back to [cased], which lowercasing may have moved.
+  if (map != null && casedToSource != null) {
+    for (var i = 0; i < map.length; i++) {
+      map[i] = casedToSource[map[i]];
+    }
+  }
+  return FoldedText(folded.toString(), map ?? casedToSource);
+}
+
+/// For every code unit in [cased], the lowercase copy of [source], the offset
+/// in [source] of the character it came from, plus one entry for the end.
+///
+/// Each character is lowercased on its own to see how long it becomes. That
+/// adds up to the length of [cased]: the only mapping that looks at its
+/// neighbours picks between the two lowercase sigmas, which are the same
+/// length.
+List<int> _lowercaseOffsets(String source, String cased) {
+  final map = <int>[];
+  final characters = source.runes.iterator;
+  while (characters.moveNext()) {
+    // ASCII stays one code unit, so it is not worth a copy to measure.
+    final length = characters.current < 0x80
+        ? 1
+        : characters.currentAsString.toLowerCase().length;
+    for (var k = 0; k < length; k++) {
+      map.add(characters.rawIndex);
+    }
+  }
+  map.add(source.length);
+  assert(
+    map.length == cased.length + 1,
+    'lowercasing one character at a time came to ${map.length - 1} code '
+    'units, and the whole string to ${cased.length}',
+  );
+  return map;
 }
 
 /// Below this every code unit folds to itself, which keeps ASCII off the

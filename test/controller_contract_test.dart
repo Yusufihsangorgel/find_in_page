@@ -313,6 +313,50 @@ void main() {
       expect(text.substring(match.start, match.end), 'cat');
     });
 
+    testWidgets('offsets survive a letter that lowercases to two', (
+      tester,
+    ) async {
+      // On the web lowercasing uses the full case mappings, which turn İ into
+      // an i followed by a combining dot above. Every match after it came out
+      // one character late, and one running to the end of the text ended past
+      // it. The VM lowercases İ to a plain i, so only a browser shows this.
+      const cases = <(String, String, bool, List<(int, String)>)>[
+        ('İSTANBUL', 'istanbul', false, [(0, 'İSTANBUL')]),
+        ('İzmir fair', 'fair', false, [(6, 'fair')]),
+        ('İzmir fair', 'fair', true, [(6, 'fair')]),
+        ('İSTANBUL ve İZMİR', 'izmir', false, [(12, 'İZMİR')]),
+        ('İSTANBUL', 'İstanbul', true, [(0, 'İSTANBUL')]),
+        ('İİ', 'i', false, [(0, 'İ'), (1, 'İ')]),
+        ('İİ', 'i', true, [(0, 'İ'), (1, 'İ')]),
+      ];
+
+      for (final (text, query, diacriticSensitive, expected) in cases) {
+        final source = _TextSource(text);
+        final controller = FindInPageController()..register(source);
+        controller.search(query, diacriticSensitive: diacriticSensitive);
+        await tester.pump();
+
+        final reason =
+            '"$query" in "$text", '
+            'diacriticSensitive: $diacriticSensitive';
+        final matches = controller.matchesFor(source);
+        expect(
+          [for (final m in matches) (m.start, m.end)],
+          [
+            for (final (start, slice) in expected)
+              (start, start + slice.length),
+          ],
+          reason: reason,
+        );
+        expect(
+          [for (final m in matches) text.substring(m.start, m.end)],
+          [for (final (_, slice) in expected) slice],
+          reason: reason,
+        );
+        controller.dispose();
+      }
+    });
+
     testWidgets('NFC and NFD spellings of the same word both match', (
       tester,
     ) async {
