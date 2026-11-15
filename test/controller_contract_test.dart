@@ -42,8 +42,9 @@ void main() {
       expect(controller.matchCount, 2, reason: 'scanning resumes past a match');
     });
 
-    testWidgets('offsets index the original text, not a folded copy',
-        (tester) async {
+    testWidgets('offsets index the original text, not a folded copy', (
+      tester,
+    ) async {
       // Case-insensitive search lowercases the haystack to compare, so the
       // reported offsets must still slice the text the caller gave us —
       // including past an emoji, which is two UTF-16 units.
@@ -59,8 +60,9 @@ void main() {
       expect(text.substring(match.start, match.end), 'cat');
     });
 
-    testWidgets('an empty or unmatched query clears the session',
-        (tester) async {
+    testWidgets('an empty or unmatched query clears the session', (
+      tester,
+    ) async {
       final controller = FindInPageController()
         ..register(_TextSource('the cat sat'));
 
@@ -97,8 +99,9 @@ void main() {
       expect(controller.activeMatchIndex, 2, reason: 'wrapped past the start');
     });
 
-    testWidgets('the active index does not go stale when matches disappear',
-        (tester) async {
+    testWidgets('the active index does not go stale when matches disappear', (
+      tester,
+    ) async {
       final source = _TextSource('cat cat cat');
       final controller = FindInPageController()..register(source);
       controller.search('cat');
@@ -129,8 +132,9 @@ void main() {
   });
 
   group('base letter folding', () {
-    testWidgets('folds diacritics, dotless and dotted i, and eszett',
-        (tester) async {
+    testWidgets('folds diacritics, dotless and dotted i, and eszett', (
+      tester,
+    ) async {
       // Every pair is a word someone would actually type into the bar, typed
       // the way a keyboard without that letter produces it. The last two
       // pairs are ASCII: they are the positive control, so a matcher that is
@@ -156,8 +160,9 @@ void main() {
       }
     });
 
-    testWidgets('offsets survive a fold that deletes code units',
-        (tester) async {
+    testWidgets('offsets survive a fold that deletes code units', (
+      tester,
+    ) async {
       // The acute accent is written separately here, so the fold drops a code
       // unit and every later offset shifts left. Without a map back to the
       // original text, start would be 5 and the slice would read " ca".
@@ -190,8 +195,9 @@ void main() {
       expect(text.substring(match.start, match.end), 'cat');
     });
 
-    testWidgets('a match inside one expanded letter highlights that letter',
-        (tester) async {
+    testWidgets('a match inside one expanded letter highlights that letter', (
+      tester,
+    ) async {
       // "Weiß" folds to "weiss", so "s" hits at two folded offsets and both
       // of them live inside the one eszett. Reporting the character once, and
       // painting it, is the answer: dropping the hit finds nothing in a word
@@ -203,11 +209,12 @@ void main() {
       await tester.pump();
       expect(controller.matchCount, 1);
       expect(
-          text.substring(
-            controller.activeMatch!.start,
-            controller.activeMatch!.end,
-          ),
-          'ß');
+        text.substring(
+          controller.activeMatch!.start,
+          controller.activeMatch!.end,
+        ),
+        'ß',
+      );
     });
 
     testWidgets('both halves of an expansion are findable', (tester) async {
@@ -227,8 +234,11 @@ void main() {
             ..register(_TextSource(entry.key));
           controller.search(query);
           await tester.pump();
-          expect(controller.matchCount, greaterThan(0),
-              reason: '${entry.key} contains $query once folded');
+          expect(
+            controller.matchCount,
+            greaterThan(0),
+            reason: '${entry.key} contains $query once folded',
+          );
           controller.dispose();
         }
       }
@@ -245,15 +255,17 @@ void main() {
       await tester.pump();
       expect(controller.matchCount, 1);
       expect(
-          text.substring(
-            controller.activeMatch!.start,
-            controller.activeMatch!.end,
-          ),
-          'Straß');
+        text.substring(
+          controller.activeMatch!.start,
+          controller.activeMatch!.end,
+        ),
+        'Straß',
+      );
     });
 
-    testWidgets('a query that folds away matches nothing and terminates',
-        (tester) async {
+    testWidgets('a query that folds away matches nothing and terminates', (
+      tester,
+    ) async {
       // A lone combining accent is not an empty query, but it folds to one.
       // Searching for the empty string finds it at every offset without ever
       // advancing, so this hangs rather than fails when the guard is missing.
@@ -266,8 +278,9 @@ void main() {
       expect(controller.activeMatchIndex, isNull);
     });
 
-    testWidgets('a match running to the end of a folded text maps to the end',
-        (tester) async {
+    testWidgets('a match running to the end of a folded text maps to the end', (
+      tester,
+    ) async {
       // The whole string is one match, so end comes from the entry one past
       // the last folded character. Off by one there reports 7 against a
       // 6 unit string.
@@ -284,8 +297,9 @@ void main() {
       expect(text.substring(match.start, match.end), text);
     });
 
-    testWidgets('a surrogate pair before an expansion keeps offsets aligned',
-        (tester) async {
+    testWidgets('a surrogate pair before an expansion keeps offsets aligned', (
+      tester,
+    ) async {
       // Two shifts in opposite directions do not cancel: the emoji is two
       // code units the fold leaves alone, the eszett is one that becomes two.
       const text = '🎉 Straße cat';
@@ -299,8 +313,9 @@ void main() {
       expect(text.substring(match.start, match.end), 'cat');
     });
 
-    testWidgets('NFC and NFD spellings of the same word both match',
-        (tester) async {
+    testWidgets('NFC and NFD spellings of the same word both match', (
+      tester,
+    ) async {
       // These two look identical on screen and nobody chooses between them;
       // the editor, keyboard or paste buffer does. Escaped on purpose, so
       // saving this file cannot quietly normalise the distinction away.
@@ -316,8 +331,9 @@ void main() {
       }
     });
 
-    testWidgets('diacriticSensitive: true restores exact matching',
-        (tester) async {
+    testWidgets('diacriticSensitive: true restores exact matching', (
+      tester,
+    ) async {
       final controller = FindInPageController()
         ..register(_TextSource('r\u00e9sum\u00e9'));
 
@@ -330,8 +346,9 @@ void main() {
       expect(controller.matchCount, 1, reason: 'typed with the accents');
     });
 
-    testWidgets('diacritic sensitivity is sticky like case sensitivity',
-        (tester) async {
+    testWidgets('diacritic sensitivity is sticky like case sensitivity', (
+      tester,
+    ) async {
       final controller = FindInPageController()
         ..register(_TextSource('r\u00e9sum\u00e9 and resume'));
 
@@ -349,8 +366,9 @@ void main() {
       expect(controller.matchCount, 1);
     });
 
-    testWidgets('case and diacritic sensitivity are independent axes',
-        (tester) async {
+    testWidgets('case and diacritic sensitivity are independent axes', (
+      tester,
+    ) async {
       // Folding to a base letter must not also fold the case away: the two
       // flags answer different questions and a user can want either one.
       final controller = FindInPageController()
@@ -363,6 +381,128 @@ void main() {
       controller.search('cafe');
       await tester.pump();
       expect(controller.matchCount, 0, reason: 'case sensitivity is sticky');
+    });
+  });
+
+  group('selectMatch', () {
+    testWidgets('moves to an index in one step, notifies once and reveals it', (
+      tester,
+    ) async {
+      final source = _TextSource('cat cat cat cat cat');
+      final revealed = <int>[];
+      final controller = FindInPageController()
+        ..register(source, reveal: () => revealed.add(1));
+      addTearDown(controller.dispose);
+      controller.search('cat');
+      // Lets the reveal queued by the search itself run first.
+      tester.binding.scheduleFrame();
+      await tester.pump();
+      expect(revealed, hasLength(1));
+      revealed.clear();
+
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      controller.selectMatch(3);
+      expect(controller.activeMatchIndex, 3);
+      expect(controller.activeMatch!.start, 12);
+      expect(notifications, 1);
+      await tester.pump();
+      expect(revealed, hasLength(1));
+
+      // Selecting the active match again scrolls to it without a change.
+      controller.selectMatch(3);
+      expect(notifications, 1);
+      await tester.pump();
+      expect(revealed, hasLength(2));
+    });
+
+    testWidgets('rejects an index outside the matches', (tester) async {
+      final controller = FindInPageController()
+        ..register(_TextSource('cat cat'));
+      addTearDown(controller.dispose);
+      expect(
+        () => controller.selectMatch(0),
+        throwsRangeError,
+        reason: 'no search, no matches',
+      );
+
+      controller.search('cat');
+      await tester.pump();
+      expect(() => controller.selectMatch(2), throwsRangeError);
+      expect(() => controller.selectMatch(-1), throwsRangeError);
+      expect(controller.activeMatchIndex, 0);
+    });
+
+    testWidgets(
+      'the selected match stays active when the same query runs again and '
+      'matches before it go away',
+      (tester) async {
+        final first = _TextSource('a cat here');
+        final second = _TextSource('cat cat cat');
+        final controller = FindInPageController()
+          ..register(first)
+          ..register(second);
+        addTearDown(controller.dispose);
+        controller.search('cat');
+        await tester.pump();
+        expect(controller.matchCount, 4);
+
+        // The middle "cat" of the second source.
+        controller.selectMatch(2);
+        expect(identical(controller.activeMatch!.source, second), isTrue);
+        expect(controller.activeMatch!.start, 4);
+
+        first.findableText = 'no match here';
+        controller.sourceTextChanged(first);
+        // The recompute runs at the end of a frame. In an app the source's own
+        // rebuild brings that frame. Nothing rebuilds here. The test asks for it.
+        tester.binding.scheduleFrame();
+        await tester.pump();
+
+        expect(controller.matchCount, 3);
+        expect(identical(controller.activeMatch!.source, second), isTrue);
+        expect(
+          controller.activeMatch!.start,
+          4,
+          reason: 'the same match, now at index 1',
+        );
+        expect(controller.activeMatchIndex, 1);
+      },
+    );
+
+    testWidgets('and when matches before it appear', (tester) async {
+      final first = _TextSource('nothing');
+      final second = _TextSource('cat cat');
+      final controller = FindInPageController()
+        ..register(first)
+        ..register(second);
+      addTearDown(controller.dispose);
+      controller.search('cat');
+      await tester.pump();
+      controller.selectMatch(1);
+
+      first.findableText = 'cat and cat';
+      controller.sourceTextChanged(first);
+      tester.binding.scheduleFrame();
+      await tester.pump();
+
+      expect(controller.matchCount, 4);
+      expect(controller.activeMatchIndex, 3);
+      expect(identical(controller.activeMatch!.source, second), isTrue);
+      expect(controller.activeMatch!.start, 4);
+    });
+
+    testWidgets('a new search starts over at the first match', (tester) async {
+      final controller = FindInPageController()
+        ..register(_TextSource('cat cat cat'));
+      addTearDown(controller.dispose);
+      controller.search('cat');
+      await tester.pump();
+      controller.selectMatch(2);
+
+      controller.search('cat', caseSensitive: true);
+      await tester.pump();
+      expect(controller.activeMatchIndex, 0);
     });
   });
 }

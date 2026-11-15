@@ -1,3 +1,148 @@
+## 3.0.0
+
+The find bar no longer depends on Material. Flutter 3.50 deprecates
+`package:flutter/material.dart`, and its successor `material_ui` defines its
+own `Theme` and `MaterialLocalizations`. A bar built from Material widgets
+breaks in one kind of app or the other. This version rebuilds the bar on the
+widgets layer. No file in `lib/` imports Material, Cupertino or
+`material_ui`, and a test fails if one does. The migration was first raised
+in #5.
+
+### Breaking changes
+
+- The minimum is now Flutter 3.41.0 with Dart 3.11.0. Flutter 3.41.0 is the
+  first stable release with `RawTooltip`, the widgets-layer tooltip the bar
+  uses.
+- The built-in bar no longer reads the Material `Theme`. Its colors, text
+  styles and geometry come from the new `style` argument of `FindBar`, then
+  the nearest `FindBarTheme`, then neutral defaults that follow the platform
+  brightness. An app that wants the bar in its own colors passes a style. The
+  recipes below build one from a Material theme.
+- The query field is an `EditableText`, and the buttons paint their own
+  icons. Test finders for a `TextField` or an `Icon` inside the bar no longer
+  match. The migration notes below have replacements.
+- The `controller` of a `FindBar` is typed as the new `FindSession`
+  interface. Passing a `FindInPageController` works unchanged. Code that
+  reads it back and calls a member only the controller has needs a cast.
+- The bar has two new toggles, match case and match accents, between the
+  query field and the match counter. They make the bar wider and come second
+  and third in the tab order. They step aside when the bar is too narrow for
+  them, and `showMatchCase: false` or `showMatchAccents: false` removes them.
+- The `itemExtent` of a `FindableListView` is now nullable, since
+  `itemExtentBuilder` can take its place.
+- The controller's `setOpenCloseHandlers` and `registeredSources` are marked
+  `@internal`. They connect this package's own widgets. Using them from
+  another package now draws an analyzer warning.
+- When the same query runs again because a source registered, unregistered or
+  changed its text, the active match stays on the same occurrence. It used to
+  keep the same index, which pointed at a different match once matches
+  before it appeared or went away.
+
+### Added
+
+- A `FindSession` interface, implemented by `FindInPageController`. It holds
+  what a find bar reads and calls, and nothing else.
+- A `barBuilder` argument on `FindInPageScope`. The scope shows what it
+  returns where the built-in bar would go, removes it on close, and closes it
+  on Escape. The builder gets the session and a close callback, which is all
+  a bar from another design system needs.
+- A `selectMatch` method on the controller. It makes the match at an index
+  active in one step and scrolls to it, and that match stays active while the
+  same query runs again.
+- Two styling classes. A `FindBarStyle` holds colors, text styles, corner
+  radius, border, shadows, padding and sizes. A `FindBarTheme` hands one to
+  every bar below it, including the one a scope shows.
+- An `itemExtentBuilder` argument on `FindableListView`, next to
+  `itemExtent`. Exactly one of the two is required. A match is revealed at the
+  sum of the extents of the rows before it.
+- Shift+Enter in the query field moves to the previous match.
+- A `contextMenuBuilder` argument on `FindBar`. By default iOS shows its
+  system menu where the platform supports it. Other platforms get a plain
+  menu of the field's actions drawn in the bar's style.
+
+### Fixed
+
+- The built-in bar works under `CupertinoApp` and under a plain
+  `WidgetsApp`. In 2.x it asserted there for lack of
+  `MaterialLocalizations`, while the README said it worked.
+- The query field turns off autocorrect and smart punctuation. Both could
+  change what was typed, and a curly apostrophe never matches the straight
+  one on the page.
+
+### Migration notes
+
+Finding the bar's parts in a widget test.
+
+```dart
+// 2.x
+await tester.enterText(find.byType(TextField), 'query');
+await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+
+// 3.0.0
+final field = find.descendant(
+  of: find.byType(FindBar),
+  matching: find.byType(EditableText),
+);
+await tester.enterText(field, 'query');
+await tester.tap(find.byTooltip('Next match'));
+```
+
+Tooltip finders such as `find.byTooltip('Next match')` keep working, and
+`find.bySemanticsLabel` finds the same buttons by name.
+
+Material colors for the bar, in an app on `package:flutter/material.dart`.
+
+```dart
+// ignore: deprecated_member_use
+import 'package:flutter/material.dart';
+import 'package:find_in_page/find_in_page.dart';
+
+FindBarStyle findBarStyleOf(ThemeData theme) => FindBarStyle(
+      backgroundColor: theme.colorScheme.surfaceContainerHigh,
+      foregroundColor: theme.colorScheme.onSurface,
+      hintColor: theme.colorScheme.onSurfaceVariant,
+      accentColor: theme.colorScheme.primary,
+      textStyle: theme.textTheme.bodyLarge,
+      counterStyle: theme.textTheme.bodySmall,
+    );
+
+MaterialApp(
+  builder: (context, child) => FindBarTheme(
+    style: findBarStyleOf(Theme.of(context)),
+    child: child!,
+  ),
+  home: FindInPageScope(child: page),
+)
+```
+
+The same in an app on `material_ui`. Only the import differs.
+
+```dart
+import 'package:material_ui/material_ui.dart';
+import 'package:find_in_page/find_in_page.dart';
+
+FindBarStyle findBarStyleOf(ThemeData theme) => FindBarStyle(
+      backgroundColor: theme.colorScheme.surfaceContainerHigh,
+      foregroundColor: theme.colorScheme.onSurface,
+      hintColor: theme.colorScheme.onSurfaceVariant,
+      accentColor: theme.colorScheme.primary,
+      textStyle: theme.textTheme.bodyLarge,
+      counterStyle: theme.textTheme.bodySmall,
+    );
+
+MaterialApp(
+  builder: (context, child) => FindBarTheme(
+    style: findBarStyleOf(Theme.of(context)),
+    child: child!,
+  ),
+  home: FindInPageScope(child: page),
+)
+```
+
+Without a style the bar follows the platform brightness, not the app's
+`themeMode`. A dark app on a light system gets a light bar until it passes
+one.
+
 ## 2.5.0
 
 - Match navigation now follows the page from top to bottom when registered

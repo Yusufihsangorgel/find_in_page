@@ -92,8 +92,8 @@ final class ParagraphSource extends RenderedTextSource {
 
   @override
   List<TextBox> textBoxes(int start, int end) => paragraph.getBoxesForSelection(
-        TextSelection(baseOffset: start, extentOffset: end),
-      );
+    TextSelection(baseOffset: start, extentOffset: end),
+  );
 }
 
 /// Text drawn by a read-only editable, which in practice means
@@ -120,8 +120,8 @@ final class ReadOnlyEditableSource extends RenderedTextSource {
 
   @override
   List<TextBox> textBoxes(int start, int end) => editable.getBoxesForSelection(
-        TextSelection(baseOffset: start, extentOffset: end),
-      );
+    TextSelection(baseOffset: start, extentOffset: end),
+  );
 }
 
 /// Whether [text] contains anything a person would search for.
@@ -133,7 +133,8 @@ final class ReadOnlyEditableSource extends RenderedTextSource {
 /// made only of those is decoration rather than content.
 bool _hasReadableText(String text) {
   for (final rune in text.runes) {
-    final private = (rune >= 0xE000 && rune <= 0xF8FF) ||
+    final private =
+        (rune >= 0xE000 && rune <= 0xF8FF) ||
         (rune >= 0xF0000 && rune <= 0xFFFFD) ||
         (rune >= 0x100000 && rune <= 0x10FFFD);
     if (private || rune == 0xFFFC) continue;
@@ -197,13 +198,14 @@ List<RenderObject> _inVisualOrder(
       }
     }
   }
-  final byTop = <int>[
-    for (var i = 0; i < children.length; i++)
-      if (!backdrops.contains(i)) i,
-  ]..sort((a, b) {
-      final top = bounds[a].top.compareTo(bounds[b].top);
-      return top != 0 ? top : a.compareTo(b);
-    });
+  final byTop =
+      <int>[
+        for (var i = 0; i < children.length; i++)
+          if (!backdrops.contains(i)) i,
+      ]..sort((a, b) {
+        final top = bounds[a].top.compareTo(bounds[b].top);
+        return top != 0 ? top : a.compareTo(b);
+      });
   final ordered = <RenderObject>[];
   final group = <int>[];
   var groupBottom = double.negativeInfinity;

@@ -6,17 +6,21 @@ import 'package:flutter_test/flutter_test.dart';
 const _body = 'the cat sat on the mat, and the other cat watched the cat';
 
 Widget _host(FindInPageController controller, {FindBar? bar}) => MaterialApp(
-      home: Scaffold(
-        body: Column(
-          children: [
-            bar ?? FindBar(controller: controller, autofocus: false),
-            Expanded(
-              child: FindableText(_body, controller: controller),
-            ),
-          ],
-        ),
-      ),
-    );
+  home: Scaffold(
+    body: Column(
+      children: [
+        bar ?? FindBar(controller: controller, autofocus: false),
+        Expanded(child: FindableText(_body, controller: controller)),
+      ],
+    ),
+  ),
+);
+
+/// The query field inside the bar.
+final _queryField = find.descendant(
+  of: find.byType(FindBar),
+  matching: find.byType(EditableText),
+);
 
 /// The label on the counter's semantics node, or null when the counter is not
 /// showing (no query yet).
@@ -44,7 +48,7 @@ void main() {
     // Nothing searched yet, so there is no counter at all.
     expect(_status(tester), isNull);
 
-    await tester.enterText(find.byType(TextField), 'cat');
+    await tester.enterText(_queryField, 'cat');
     await tester.pumpAndSettle();
 
     // A sighted user watches "1/3" appear here; this is the same fact said
@@ -63,7 +67,7 @@ void main() {
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(_host(controller));
-    await tester.enterText(find.byType(TextField), 'cat');
+    await tester.enterText(_queryField, 'cat');
     await tester.pumpAndSettle();
     expect(_status(tester), 'Match 1 of 3');
 
@@ -83,7 +87,7 @@ void main() {
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(_host(controller));
-    await tester.enterText(find.byType(TextField), 'elephant');
+    await tester.enterText(_queryField, 'elephant');
     await tester.pumpAndSettle();
 
     expect(_status(tester), 'No matches');
@@ -100,7 +104,7 @@ void main() {
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(_host(controller));
-    await tester.enterText(find.byType(TextField), 'cat');
+    await tester.enterText(_queryField, 'cat');
     await tester.pumpAndSettle();
 
     // "1/3" reads badly aloud, so it is excluded from the tree entirely and
@@ -128,7 +132,7 @@ void main() {
         ),
       ),
     );
-    await tester.enterText(find.byType(TextField), 'cat');
+    await tester.enterText(_queryField, 'cat');
     await tester.pumpAndSettle();
 
     expect(_status(tester), '1. eşleşme, 3 adet');

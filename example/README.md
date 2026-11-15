@@ -23,6 +23,10 @@ It shows all three ways text becomes searchable under one `FindInPageScope`:
    that list and searches `row 1997`, which is found and scrolled to even
    though it was never on screen.
 
+The third destination, Custom bar, shows the same page with a bar built from
+Material widgets. The scope shows it through `barBuilder`, in place of its
+own `FindBar`, and opens it with Ctrl+F or the search button in the app bar.
+
 The find bar and the bottom navigation are wrapped in `ExcludeFromFind`,
 because they are chrome rather than content: without that, searching `row`
 would also match the destination you are about to press.

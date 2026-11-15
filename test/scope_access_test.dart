@@ -22,8 +22,9 @@ final class _FakeSource implements FindableSource {
 /// `of` throws, and `isActive` compares by identity rather than by value.
 void main() {
   group('FindInPageScope.maybeOf', () {
-    testWidgets('returns the controller of the enclosing scope',
-        (tester) async {
+    testWidgets('returns the controller of the enclosing scope', (
+      tester,
+    ) async {
       final controller = FindInPageController();
       addTearDown(controller.dispose);
       FindInPageController? seen;
@@ -137,8 +138,11 @@ void main() {
       final after = controller.matchesFor(source).first;
 
       expect(controller.isActive(after), isTrue);
-      expect(controller.isActive(before), isFalse,
-          reason: 'the same offsets from an earlier search are a stale object');
+      expect(
+        controller.isActive(before),
+        isFalse,
+        reason: 'the same offsets from an earlier search are a stale object',
+      );
     });
 
     test('nothing is active once the search is cleared', () {

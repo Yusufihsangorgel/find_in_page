@@ -154,16 +154,19 @@ class _FindableTextState extends State<FindableText> implements FindableSource {
             if (match.end > widget.data.length) continue;
             if (match.start > cursor) {
               spans.add(
-                  TextSpan(text: widget.data.substring(cursor, match.start)));
+                TextSpan(text: widget.data.substring(cursor, match.start)),
+              );
             }
-            spans.add(TextSpan(
-              text: widget.data.substring(match.start, match.end),
-              style: TextStyle(
-                backgroundColor: controller.isActive(match)
-                    ? widget.activeHighlightColor
-                    : widget.highlightColor,
+            spans.add(
+              TextSpan(
+                text: widget.data.substring(match.start, match.end),
+                style: TextStyle(
+                  backgroundColor: controller.isActive(match)
+                      ? widget.activeHighlightColor
+                      : widget.highlightColor,
+                ),
               ),
-            ));
+            );
             cursor = match.end;
           }
           if (spans.isEmpty) return _text(widget.data);
@@ -191,19 +194,19 @@ class _FindableTextState extends State<FindableText> implements FindableSource {
   }
 
   Text _text(String data) => Text(
-        data,
-        style: widget.style,
-        strutStyle: widget.strutStyle,
-        textAlign: widget.textAlign,
-        textDirection: widget.textDirection,
-        locale: widget.locale,
-        softWrap: widget.softWrap,
-        overflow: widget.overflow,
-        textScaler: widget.textScaler,
-        maxLines: widget.maxLines,
-        semanticsLabel: widget.semanticsLabel,
-        textWidthBasis: widget.textWidthBasis,
-        textHeightBehavior: widget.textHeightBehavior,
-        selectionColor: widget.selectionColor,
-      );
+    data,
+    style: widget.style,
+    strutStyle: widget.strutStyle,
+    textAlign: widget.textAlign,
+    textDirection: widget.textDirection,
+    locale: widget.locale,
+    softWrap: widget.softWrap,
+    overflow: widget.overflow,
+    textScaler: widget.textScaler,
+    maxLines: widget.maxLines,
+    semanticsLabel: widget.semanticsLabel,
+    textWidthBasis: widget.textWidthBasis,
+    textHeightBehavior: widget.textHeightBehavior,
+    selectionColor: widget.selectionColor,
+  );
 }

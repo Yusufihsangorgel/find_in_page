@@ -3,7 +3,7 @@ name: find_in_page
 # the line break whenever the fold lands mid-token, and pub.dev renders the
 # break verbatim in the sidebar caption.
 description: "An in-app find bar for Flutter. Wrap your page and Ctrl+F highlights and scrolls to every match, in text you never wrapped and in lazy-list rows that were never built."
-version: 2.5.0
+version: 3.0.0
 repository: https://github.com/Yusufihsangorgel/find_in_page
 issue_tracker: https://github.com/Yusufihsangorgel/find_in_page/issues
 
@@ -27,8 +27,10 @@ screenshots:
     path: doc/lazy-list.png
 
 environment:
-  sdk: ^3.4.0
-  flutter: ">=3.22.0"
+  # 3.41.0 is the first stable release with RawTooltip, the widgets-layer
+  # tooltip the find bar uses. It ships Dart 3.11.0.
+  sdk: ^3.11.0
+  flutter: ">=3.41.0"
 
 dependencies:
   flutter:

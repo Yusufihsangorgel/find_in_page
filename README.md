@@ -17,6 +17,20 @@ That example is running at
 [yusufihsangorgel.github.io/find_in_page](https://yusufihsangorgel.github.io/find_in_page/),
 built for web from `example/` on every push to `main`.
 
+## Setup
+
+```yaml
+dependencies:
+  find_in_page: ^3.0.0
+```
+
+It needs Flutter 3.41 or later. The library imports only the widgets layer.
+The built-in bar therefore runs the same under `MaterialApp`, `CupertinoApp`,
+a plain `WidgetsApp` and apps built on `material_ui`, and it reads none of
+their themes. Coming from 2.x, the
+[changelog](https://github.com/Yusufihsangorgel/find_in_page/blob/main/CHANGELOG.md)
+lists what changed and how to restyle the bar.
+
 ## Why this instead of what you already have
 
 **Instead of walking the widget tree yourself.** `RichText`
@@ -71,7 +85,8 @@ clearer to use than a find bar.
 
 That is the whole integration. Ctrl+F (Cmd+F on macOS) opens the bar, typing
 highlights every match, Enter and the arrow buttons move between them and
-scroll each into view, and Escape closes and clears.
+scroll each into view, Shift+Enter goes back, and Escape closes and clears.
+Two toggles beside the field switch on case and accent matching.
 
 ## Text you never wrapped
 
@@ -160,7 +175,9 @@ searches only what registered itself, the way versions before 2.0.0 behaved.
 |---|---|
 | `FindInPageScope` | Provides the controller, handles Ctrl+F / Escape, overlays the bar |
 | `FindableText` | `Text` replacement that registers its content and renders highlights |
-| `FindBar` | The search bar widget, usable standalone for custom placement |
+| `FindBar` | The search bar widget, built on the widgets layer, usable standalone for custom placement |
+| `FindBarStyle`, `FindBarTheme` | Colors, text styles and geometry of the bar, per bar or for a subtree |
+| `FindSession` | What a find bar reads and calls. The controller implements it |
 | `FindInPageController` | Query, matches, and navigation; drive it directly for custom UIs |
 | `FindableSource` | Interface to make any custom widget searchable |
 | `FindableListView` | `ListView.builder` adapter that makes the whole backing list searchable, including items that are not built |
@@ -175,8 +192,9 @@ on that counter and the loop is silent.
 
 `FindBar` announces it as a live region instead, saying "Match 1 of 3" or "No
 matches" whenever the count or the active match changes, while the terse `1/3`
-is kept out of the announcement because it reads badly aloud. The button
-tooltips already carried labels.
+is kept out of the announcement because it reads badly aloud. The query field
+is named by its placeholder. Each button is announced as a button named by its
+tooltip text, and the two toggles also report whether they are on.
 
 Both default to English, like the tooltips; pass a localized builder:
 
@@ -187,6 +205,65 @@ FindBar(
       count == 0 ? l10n.noMatches : l10n.matchOf(active + 1, count),
 )
 ```
+
+## Theming the bar
+
+The bar reads no Material or Cupertino theme. Out of the box it is a neutral
+white bar on a light system and a charcoal one on a dark system. A
+`FindBarStyle` changes its colors, text styles, corner radius, border,
+shadows, padding and sizes. Pass one to a single bar as `FindBar(style: ...)`,
+or put a `FindBarTheme` above the scope to style every bar below it.
+
+An app on `package:flutter/material.dart` can build the style from its theme
+once, in `MaterialApp.builder`.
+
+```dart
+FindBarStyle findBarStyleOf(ThemeData theme) => FindBarStyle(
+      backgroundColor: theme.colorScheme.surfaceContainerHigh,
+      foregroundColor: theme.colorScheme.onSurface,
+      hintColor: theme.colorScheme.onSurfaceVariant,
+      accentColor: theme.colorScheme.primary,
+      textStyle: theme.textTheme.bodyLarge,
+      counterStyle: theme.textTheme.bodySmall,
+    );
+
+MaterialApp(
+  builder: (context, child) => FindBarTheme(
+    style: findBarStyleOf(Theme.of(context)),
+    child: child!,
+  ),
+  home: FindInPageScope(child: page),
+)
+```
+
+The same code compiles in an app on `material_ui` with
+`import 'package:material_ui/material_ui.dart';` in place of the Material
+import.
+
+## A bar from your own design system
+
+To keep the scope's shortcut, placement and Escape handling but draw a
+different bar, pass `barBuilder`. It gets the scope's controller as a
+`FindSession` and a callback that closes find.
+
+```dart
+FindInPageScope(
+  barBuilder: (context, session, onClose) => MyFindBar(
+    query: session.query,
+    status: '${(session.activeMatchIndex ?? -1) + 1}/${session.matchCount}',
+    onChanged: session.search,
+    onNext: session.next,
+    onPrevious: session.previous,
+    onClose: onClose,
+  ),
+  child: page,
+)
+```
+
+Here `MyFindBar` stands for any widget of yours. Rebuild it when the session
+notifies, for example with a `ListenableBuilder`, and request focus for its
+field when it first builds. The `example/` app has one made of Material
+widgets.
 
 ## Custom UI
 
@@ -317,10 +394,24 @@ the highlight from those offsets is the builder's job, the same way a plain
 
 Because an off-screen match has no live widget, revealing it cannot call
 `Scrollable.ensureVisible`. `FindableListView` animates a `ScrollController` to
-`index * itemExtent` instead, which is why `itemExtent` is required. Every item
-must therefore be the same height (or width, for a horizontal list), the same
-constraint `ListView.builder(itemExtent: ...)` already carries. Variable height
-items are unsupported. For other data-driven cases, register a `FindableRecord`
+the matched row's offset instead, which is why each row's extent has to be
+known without building it. Pass `itemExtent` when every row is the same height
+(or width, for a horizontal list). When rows differ, pass `itemExtentBuilder`
+in its place, the same callback `ListView.builder` takes. The offset is then
+the sum of the extents of the rows before the match.
+
+```dart
+FindableListView(
+  itemCount: messages.length,
+  itemExtentBuilder: (index, dimensions) =>
+      messages[index].hasAttachment ? 120 : 56,
+  findableTextOf: (index) => messages[index].text,
+  itemBuilder: (context, index, matches, activeMatchIndex) =>
+      MessageTile(messages[index], matches: matches),
+)
+```
+
+For other data-driven cases, register a `FindableRecord`
 yourself with `FindInPageController.register(record, reveal: ...)`, where
 `reveal` runs in place of `Scrollable.ensureVisible` when one of its matches
 becomes active.
@@ -340,10 +431,21 @@ becomes active.
   per-line precision is planned.
 - Matches clipped away by `maxLines` or `overflow` are counted and navigated
   to, but they cannot become visible.
-- `FindableListView` needs a fixed `itemExtent` and renders no highlights of
-  its own.
-- The built-in bar needs an `Overlay` ancestor. Every `MaterialApp`,
-  `CupertinoApp` and `WidgetsApp` provides one.
+- `FindableListView` needs every row's extent up front, from `itemExtent` or
+  `itemExtentBuilder`, and renders no highlights of its own.
+- The scope's bar needs an `Overlay` ancestor. A `MaterialApp` and a
+  `CupertinoApp` provide one, and so does a `WidgetsApp` with a home page or
+  routes. A `FindBar` placed by hand works without one, minus its tooltips
+  and its selection menu.
+- The bar draws its own selection handles, the same rounded shape on every
+  touch platform. Its context menu is the system menu on iOS where the
+  platform offers one. Elsewhere, Android included, it is a plain menu of the
+  field's actions in the bar's colors, not the platform's own toolbar. Pass
+  `contextMenuBuilder` to show your design system's menu.
+- The toggle labels, tooltips and match announcements default to English.
+  Each has a constructor argument for a translation. The context menu takes
+  its labels from `WidgetsLocalizations` where that class has them, which
+  leaves Delete and Scan Text in English.
 - On Flutter web, Ctrl+F / Cmd+F is intercepted when the browser allows
   it. That does not put text in the DOM. Find from a menu, F3, and
   Ctrl+G are not intercepted. If the browser refuses, its empty find bar

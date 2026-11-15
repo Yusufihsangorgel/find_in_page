@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import 'controller.dart';
@@ -17,12 +18,13 @@ import 'scope.dart';
 /// Rendering the highlight is the builder's job, `FindableListView` only
 /// hands over where the matches are; see the package README for an
 /// example.
-typedef FindableListItemBuilder = Widget Function(
-  BuildContext context,
-  int index,
-  List<FindMatch> matches,
-  int? activeMatchIndex,
-);
+typedef FindableListItemBuilder =
+    Widget Function(
+      BuildContext context,
+      int index,
+      List<FindMatch> matches,
+      int? activeMatchIndex,
+    );
 
 /// A `ListView.builder` whose entire backing list is searchable, not just
 /// the items currently built.
@@ -38,9 +40,12 @@ typedef FindableListItemBuilder = Widget Function(
 ///
 /// Because an off-screen match has no live widget, revealing it cannot use
 /// `Scrollable.ensureVisible`. [FindableListView] instead animates
-/// [scrollController] to the matched item's index, then hands the item's
+/// [scrollController] to the matched item's offset, then hands the item's
 /// matches to [itemBuilder] once it is built so it can render the
-/// highlight itself.
+/// highlight itself. The offset is the sum of the extents of the items
+/// before it, which is why every item's extent has to be known without
+/// building it. Pass [itemExtent] when all items are the same size, or
+/// [itemExtentBuilder] when they are not.
 ///
 /// ```dart
 /// FindableListView(
@@ -55,21 +60,24 @@ typedef FindableListItemBuilder = Widget Function(
 ///
 /// ## Limits
 ///
-/// - Every item must have the same extent, given as [itemExtent]: reveal
-///   is `index * itemExtent`, which is exact only for a uniform height (or
-///   width), the same constraint `ListView.builder(itemExtent: ...)`
-///   already has. There is no support for variable-height items.
+/// - Every item's extent must be known up front, as [itemExtent] or as
+///   [itemExtentBuilder]. The list lays items out at exactly those
+///   extents, the same as `ListView.builder` does with either argument.
+///   Items that size themselves from their content are not supported.
 /// - `FindableListView` does not highlight matches itself; [itemBuilder]
 ///   gets the match offsets and renders them, since it already owns the
 ///   item's layout. There is no `FindableText`-style automatic span
 ///   rendering here.
 final class FindableListView extends StatefulWidget {
   /// Creates a searchable lazy list.
+  ///
+  /// Exactly one of [itemExtent] and [itemExtentBuilder] must be given.
   const FindableListView({
     required this.itemCount,
     required this.findableTextOf,
     required this.itemBuilder,
-    required this.itemExtent,
+    this.itemExtent,
+    this.itemExtentBuilder,
     this.scrollController,
     this.findController,
     this.padding,
@@ -77,7 +85,10 @@ final class FindableListView extends StatefulWidget {
     this.reverse = false,
     this.physics,
     super.key,
-  });
+  }) : assert(
+         (itemExtent == null) != (itemExtentBuilder == null),
+         'Pass exactly one of itemExtent and itemExtentBuilder.',
+       );
 
   /// Number of items in the backing list.
   final int itemCount;
@@ -89,10 +100,19 @@ final class FindableListView extends StatefulWidget {
   /// Builds the item at [index]. See [FindableListItemBuilder].
   final FindableListItemBuilder itemBuilder;
 
-  /// The fixed extent of every item along [scrollDirection]. Required to
-  /// turn a match's index into a scroll offset without building the item
-  /// first; see the Limits section on the class.
-  final double itemExtent;
+  /// The fixed extent of every item along [scrollDirection].
+  ///
+  /// A match in item `i` is revealed at `i * itemExtent`. Leave this null
+  /// and pass [itemExtentBuilder] when items differ in size.
+  final double? itemExtent;
+
+  /// The extent of each item along [scrollDirection], by index.
+  ///
+  /// Passed to `ListView.builder` unchanged, and summed over the items
+  /// before a match to find the offset that reveals it. It is called with
+  /// the list's current layout dimensions, both by the list and by the
+  /// reveal. Leave this null when [itemExtent] is given.
+  final ItemExtentBuilder? itemExtentBuilder;
 
   /// Animated to reveal matches. When null, `FindableListView` creates and
   /// owns one.
@@ -221,11 +241,46 @@ class _FindableListViewState extends State<FindableListView> {
     }
   }
 
+  /// Where item [index] starts, measured from where item 0 starts.
+  double _offsetOfIndex(int index, ScrollPosition position) {
+    final fixed = widget.itemExtent;
+    if (fixed != null) return index * fixed;
+    final extentOf = widget.itemExtentBuilder!;
+    final dimensions = SliverLayoutDimensions(
+      scrollOffset: position.pixels < 0 ? 0 : position.pixels,
+      precedingScrollExtent: 0,
+      viewportMainAxisExtent: position.viewportDimension,
+      crossAxisExtent: _crossAxisExtent(),
+    );
+    var offset = 0.0;
+    for (var i = 0; i < index; i++) {
+      // Null marks the end of the list for ListView as well.
+      final extent = extentOf(i, dimensions);
+      if (extent == null) break;
+      offset += extent;
+    }
+    return offset;
+  }
+
+  /// The cross-axis extent the list's items are laid out in.
+  double _crossAxisExtent() {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return 0;
+    final padding =
+        widget.padding?.resolve(Directionality.maybeOf(context)) ??
+        EdgeInsets.zero;
+    return switch (widget.scrollDirection) {
+      Axis.vertical => box.size.width - padding.horizontal,
+      Axis.horizontal => box.size.height - padding.vertical,
+    };
+  }
+
   void _revealIndex(int index) {
     final scrollController = _scrollController;
     if (!scrollController.hasClients) return;
     final position = scrollController.position;
-    final target = index * widget.itemExtent - position.viewportDimension * 0.3;
+    final target =
+        _offsetOfIndex(index, position) - position.viewportDimension * 0.3;
     scrollController.animateTo(
       target.clamp(0.0, position.maxScrollExtent),
       duration: const Duration(milliseconds: 200),
@@ -243,6 +298,7 @@ class _FindableListViewState extends State<FindableListView> {
         controller: _scrollController,
         itemCount: widget.itemCount,
         itemExtent: widget.itemExtent,
+        itemExtentBuilder: widget.itemExtentBuilder,
         padding: widget.padding,
         scrollDirection: widget.scrollDirection,
         reverse: widget.reverse,
@@ -263,7 +319,11 @@ class _FindableListViewState extends State<FindableListView> {
                 }
               }
               return widget.itemBuilder(
-                  context, index, matches, activeMatchIndex);
+                context,
+                index,
+                matches,
+                activeMatchIndex,
+              );
             },
           );
         },

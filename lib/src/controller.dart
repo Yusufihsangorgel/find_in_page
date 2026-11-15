@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show internal;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import 'auto_discovery.dart';
+import 'find_session.dart';
 import 'text_fold.dart';
 
 /// A single occurrence of the query inside a registered source.
@@ -42,7 +44,9 @@ abstract interface class FindableSource {
 /// includes a body extended behind the app bar with `extendBodyBehindAppBar`.
 /// Sources with no anchor in the searched subtree come first in registration
 /// order. With discovery off, registration order is used throughout.
-final class FindInPageController extends ChangeNotifier {
+///
+/// It implements [FindSession], the contract a find bar is built against.
+final class FindInPageController extends ChangeNotifier implements FindSession {
   /// Creates a controller with no active search.
   FindInPageController();
 
@@ -64,15 +68,18 @@ final class FindInPageController extends ChangeNotifier {
   VoidCallback? _closeHandler;
 
   /// The current search query. Empty when no search is active.
+  @override
   String get query => _query;
 
   /// Whether find is open: the enclosing scope's built-in bar is showing, or
   /// a custom UI was told to open through [open].
   ///
   /// Changes notify listeners, like everything else on this controller.
+  @override
   bool get isOpen => _isOpen;
 
   /// Whether matching is case sensitive. Defaults to false.
+  @override
   bool get caseSensitive => _caseSensitive;
 
   /// Whether a letter has to be typed with its own accent to match. Defaults
@@ -83,12 +90,15 @@ final class FindInPageController extends ChangeNotifier {
   /// combining marks, so a decomposed spelling matches its composed one. It
   /// is named for the usual case but does a little more than accents: `ı`
   /// folds to `i` and `ß` to `ss`, and neither of those is a diacritic.
+  @override
   bool get diacriticSensitive => _diacriticSensitive;
 
   /// Total number of matches across all sources.
+  @override
   int get matchCount => _matches.length;
 
   /// 0-based index of the active match, or null when there are no matches.
+  @override
   int? get activeMatchIndex => _activeIndex;
 
   /// The active match, or null when there are no matches.
@@ -102,6 +112,7 @@ final class FindInPageController extends ChangeNotifier {
   /// Both flags keep their value until passed again, and they are
   /// independent axes: matching can respect case while ignoring accents, or
   /// the other way round.
+  @override
   void search(String query, {bool? caseSensitive, bool? diacriticSensitive}) {
     _query = query;
     if (caseSensitive != null) _caseSensitive = caseSensitive;
@@ -130,6 +141,7 @@ final class FindInPageController extends ChangeNotifier {
   ///
   /// Safe to call when already closed, or with no `FindInPageScope` mounted
   /// for this controller.
+  @override
   void close() {
     clearSearch();
     _setOpen(false);
@@ -142,6 +154,10 @@ final class FindInPageController extends ChangeNotifier {
   /// two nulls when it disposes or swaps to a different controller; passing
   /// two nulls also resets [isOpen] to false, since whatever bar this
   /// controller was showing no longer exists.
+  ///
+  /// Wiring between this package's own widgets. Code outside the package
+  /// gets an analyzer warning for calling it.
+  @internal
   // ignore: use_setters_to_change_properties
   void setOpenCloseHandlers(VoidCallback? onOpen, VoidCallback? onClose) {
     _openHandler = onOpen;
@@ -161,6 +177,7 @@ final class FindInPageController extends ChangeNotifier {
   }
 
   /// Makes the next match active (wrapping) and scrolls it into view.
+  @override
   void next() {
     if (_matches.isEmpty) return;
     _activeIndex = ((_activeIndex ?? -1) + 1) % _matches.length;
@@ -169,12 +186,37 @@ final class FindInPageController extends ChangeNotifier {
   }
 
   /// Makes the previous match active (wrapping) and scrolls it into view.
+  @override
   void previous() {
     if (_matches.isEmpty) return;
     _activeIndex =
         ((_activeIndex ?? 0) - 1 + _matches.length) % _matches.length;
     _revealActive();
     notifyListeners();
+  }
+
+  /// Makes the match at [index] active and scrolls it into view, in one
+  /// step.
+  ///
+  /// Throws a [RangeError] unless `0 <= index < matchCount`. A list of
+  /// results that jumps to the fifth match calls this once, where [next]
+  /// would scroll through the four before it.
+  ///
+  /// The selected match stays active while the same query runs again. That
+  /// happens whenever a source registers, unregisters or reports new text.
+  /// As long as the match is still found at the same place in the same
+  /// source it remains active, even if matches before it appeared or went
+  /// away. Calling [search] starts over at the first match.
+  @override
+  void selectMatch(int index) {
+    RangeError.checkValidIndex(index, _matches, 'index');
+    final changed = _activeIndex != index;
+    _activeIndex = index;
+    _revealActive();
+    // Selecting the match that is already active changes nothing on screen,
+    // and no frame would come to run the reveal. Ask for one.
+    SchedulerBinding.instance.ensureVisualUpdate();
+    if (changed) notifyListeners();
   }
 
   /// Adds [source] to the search domain.
@@ -233,6 +275,10 @@ final class FindInPageController extends ChangeNotifier {
   /// Discovery uses this to leave their text alone: a `FindableText` both
   /// registers and renders a paragraph, and counting it twice would double
   /// every match inside it.
+  ///
+  /// Wiring between this package's own widgets. Code outside the package
+  /// gets an analyzer warning for reading it.
+  @internal
   List<FindableSource> get registeredSources => List.unmodifiable(_sources);
 
   /// The sources found by the last sweep, in visual order.
@@ -270,6 +316,9 @@ final class FindInPageController extends ChangeNotifier {
   }
 
   void _recompute({bool resetActive = false}) {
+    // Taken before the list is rebuilt. A rerun of the same query keeps this
+    // match active wherever it now lands in the order.
+    final previous = resetActive ? null : activeMatch;
     _matches.clear();
     _matchesBySource.clear();
     final sweep = _query.isEmpty ? null : _discover?.call();
@@ -348,8 +397,19 @@ final class FindInPageController extends ChangeNotifier {
     } else if (resetActive || _activeIndex == null) {
       _activeIndex = 0;
       _revealActive();
-    } else if (_activeIndex! >= _matches.length) {
-      _activeIndex = _matches.length - 1;
+    } else {
+      final kept = previous == null
+          ? -1
+          : _matches.indexWhere(
+              (match) =>
+                  identical(match.source, previous.source) &&
+                  match.start == previous.start,
+            );
+      if (kept >= 0) {
+        _activeIndex = kept;
+      } else if (_activeIndex! >= _matches.length) {
+        _activeIndex = _matches.length - 1;
+      }
     }
     notifyListeners();
   }

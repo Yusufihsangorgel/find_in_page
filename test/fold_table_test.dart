@@ -36,8 +36,9 @@ int count(String text, String query) {
 }
 
 void main() {
-  testWidgets('every expansion, every substring of what it folds to',
-      (tester) async {
+  testWidgets('every expansion, every substring of what it folds to', (
+    tester,
+  ) async {
     final bad = <String>[];
     for (final e in expansions.entries) {
       final folded = e.value.toLowerCase();
@@ -56,8 +57,9 @@ void main() {
     expect(bad, isEmpty);
   });
 
-  testWidgets('adjacent, leading, trailing and all-expansion strings',
-      (tester) async {
+  testWidgets('adjacent, leading, trailing and all-expansion strings', (
+    tester,
+  ) async {
     final bad = <String>[];
     final keys = expansions.keys.toList();
     for (final a in keys) {
@@ -75,8 +77,9 @@ void main() {
     expect(bad, isEmpty);
   });
 
-  testWidgets('an expanding character as the query finds itself',
-      (tester) async {
+  testWidgets('an expanding character as the query finds itself', (
+    tester,
+  ) async {
     final bad = <String>[];
     for (final e in expansions.entries) {
       if (count('a${e.key}b', e.key) == 0) bad.add('${e.key} <- itself');
@@ -89,8 +92,9 @@ void main() {
     expect(bad, isEmpty);
   });
 
-  testWidgets('a highlighted slice always contains the query once folded',
-      (tester) async {
+  testWidgets('a highlighted slice always contains the query once folded', (
+    tester,
+  ) async {
     // The offsets are what the overlay paints with. If a slice does not
     // contain what was searched for, the reader sees the wrong characters
     // lit up, which is worse than finding nothing.

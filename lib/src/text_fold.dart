@@ -223,7 +223,7 @@ Map<int, String> _buildFoldTable() {
 /// working for everything else and only that one letter quietly stops
 /// matching.
 List<String> _unfolded(Map<int, String> table) => [
-      for (var unit = 0x00C0; unit <= 0x017F; unit++)
-        if (unit != 0x00D7 && unit != 0x00F7 && !table.containsKey(unit))
-          'U+${unit.toRadixString(16).toUpperCase().padLeft(4, '0')}',
-    ];
+  for (var unit = 0x00C0; unit <= 0x017F; unit++)
+    if (unit != 0x00D7 && unit != 0x00F7 && !table.containsKey(unit))
+      'U+${unit.toRadixString(16).toUpperCase().padLeft(4, '0')}',
+];

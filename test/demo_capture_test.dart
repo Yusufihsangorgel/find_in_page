@@ -70,7 +70,13 @@ Future<void> _run(WidgetTester tester, FindInPageController controller) async {
   // Type the query letter by letter; matches highlight as it grows.
   const query = 'flutter';
   for (var i = 1; i <= query.length; i++) {
-    await tester.enterText(find.byType(TextField), query.substring(0, i));
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(FindBar),
+        matching: find.byType(EditableText),
+      ),
+      query.substring(0, i),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
     await _capture(tester);
@@ -125,16 +131,18 @@ Directory _materialFontsDir() {
 }
 
 Future<void> _capture(WidgetTester tester) async {
-  final boundary =
-      tester.renderObject<RenderRepaintBoundary>(find.byKey(_captureKey));
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(_captureKey),
+  );
   final name = 'frame_${'$_frameIndex'.padLeft(3, '0')}.png';
   _frameIndex++;
   await tester.runAsync(() async {
     final image = await boundary.toImage(pixelRatio: 2);
     try {
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      await File('${_frameDir.path}/$name')
-          .writeAsBytes(data!.buffer.asUint8List());
+      await File(
+        '${_frameDir.path}/$name',
+      ).writeAsBytes(data!.buffer.asUint8List());
     } finally {
       image.dispose();
     }
@@ -174,8 +182,10 @@ class _Article extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final heading = theme.textTheme.titleLarge
-        ?.copyWith(fontWeight: FontWeight.w600, height: 1.3);
+    final heading = theme.textTheme.titleLarge?.copyWith(
+      fontWeight: FontWeight.w600,
+      height: 1.3,
+    );
     final body = theme.textTheme.bodyLarge?.copyWith(height: 1.55);
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
@@ -184,8 +194,9 @@ class _Article extends StatelessWidget {
         children: [
           FindableText(
             'Weekly digest: rendering, tooling, and the road to 4.0',
-            style: theme.textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 8),
           FindableText(

@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'auto_discovery.dart';
 import 'controller.dart';
 import 'find_bar.dart';
+import 'find_session.dart';
 import 'highlight_overlay.dart';
 import 'web_find_intercept.dart';
 
@@ -41,17 +42,20 @@ const Color _activeMatchFill = Color(0xB3FF9800);
 /// keyboard focus even if something else held it, and closing the bar
 /// (button, Escape, or [FindInPageController.close]) returns focus to
 /// whatever that was, if it can still take focus. The bar is rendered into
-/// the nearest [Overlay] (every `MaterialApp`, `CupertinoApp`, or
-/// `WidgetsApp` provides one), so it is visible and tappable no matter how
-/// [child] is laid out.
+/// the nearest [Overlay]. A `MaterialApp` or `CupertinoApp` provides one, and
+/// so does a `WidgetsApp` with a home page or routes. Drawn there, the bar is
+/// visible and tappable no matter how [child] is laid out.
 ///
 /// [FindInPageController.isOpen] tracks whether find is open — the bar is
 /// showing, or a custom UI was told to open — and [FindInPageController.open]
 /// / [FindInPageController.close] drive it the same way the shortcut and the
 /// bar's own close button do, so all four paths keep [isOpen] truthful.
 ///
-/// For a custom find UI, pass [showBar]: false and either handle
-/// [onOpenRequested] or drive the controller directly.
+/// For a bar in your own design system, pass [barBuilder]. The scope places
+/// what it returns where the built-in bar would go, and opens and closes it
+/// the same. For a custom find UI placed somewhere else entirely, pass
+/// [showBar]: false and either handle [onOpenRequested] or drive the
+/// controller directly.
 ///
 /// ## Web
 ///
@@ -84,6 +88,7 @@ final class FindInPageScope extends StatefulWidget {
     this.showBar = true,
     this.onOpenRequested,
     this.barAlignment = AlignmentDirectional.topEnd,
+    this.barBuilder,
     this.autoDiscover = true,
     this.highlightColor,
     this.activeHighlightColor,
@@ -112,6 +117,32 @@ final class FindInPageScope extends StatefulWidget {
   /// the ambient text direction.
   final AlignmentGeometry barAlignment;
 
+  /// Builds the bar shown when find opens, in place of the default
+  /// [FindBar].
+  ///
+  /// The builder gets the scope's controller as a [FindSession] and a
+  /// callback that closes find. The result is placed at [barAlignment] in
+  /// the nearest [Overlay], inside the safe area, and removed again when
+  /// find closes. Escape closes it the same as it closes the default bar.
+  ///
+  /// The scope does not move focus into a custom bar. Request focus for its
+  /// query field when it first builds. Focus returns to where it was when
+  /// that field leaves the tree.
+  ///
+  /// ```dart
+  /// FindInPageScope(
+  ///   barBuilder: (context, session, onClose) => FindBar(
+  ///     controller: session,
+  ///     onClose: onClose,
+  ///     showMatchAccents: false,
+  ///   ),
+  ///   child: page,
+  /// )
+  /// ```
+  ///
+  /// Ignored when [showBar] is false.
+  final FindBarBuilder? barBuilder;
+
   /// Whether text that was never wrapped is searched too. Defaults to true.
   ///
   /// Turn it off to search only sources that registered themselves, which is
@@ -138,8 +169,10 @@ final class FindInPageScope extends StatefulWidget {
   /// The controller of the nearest enclosing scope.
   static FindInPageController of(BuildContext context) {
     final controller = maybeOf(context);
-    assert(controller != null,
-        'FindInPageScope.of() called with no FindInPageScope ancestor');
+    assert(
+      controller != null,
+      'FindInPageScope.of() called with no FindInPageScope ancestor',
+    );
     return controller!;
   }
 
@@ -229,7 +262,8 @@ class _FindInPageScopeState extends State<FindInPageScope> {
     final control = HardwareKeyboard.instance.isControlPressed;
     final meta = HardwareKeyboard.instance.isMetaPressed;
     if (kIsWeb) return control || meta;
-    final apple = defaultTargetPlatform == TargetPlatform.macOS ||
+    final apple =
+        defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.iOS;
     return apple ? meta : control;
   }
@@ -289,6 +323,11 @@ class _FindInPageScopeState extends State<FindInPageScope> {
             child: Padding(
               padding: const EdgeInsets.all(8),
               child:
+                  widget.barBuilder?.call(
+                    context,
+                    _controller,
+                    _controller.close,
+                  ) ??
                   FindBar(controller: _controller, onClose: _controller.close),
             ),
           ),

@@ -5,37 +5,37 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// The page a reader actually has: text in widgets nobody wrapped.
 Widget _realisticPage(FindInPageController controller) => MaterialApp(
-      home: FindInPageScope(
-        controller: controller,
-        child: Scaffold(
-          appBar: AppBar(title: const Text('acme docs')),
-          body: ListView(
-            children: [
-              Text.rich(
-                const TextSpan(
-                  children: [
-                    TextSpan(text: 'Support: '),
-                    TextSpan(
-                      text: 'acme support desk',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
+  home: FindInPageScope(
+    controller: controller,
+    child: Scaffold(
+      appBar: AppBar(title: const Text('acme docs')),
+      body: ListView(
+        children: [
+          Text.rich(
+            const TextSpan(
+              children: [
+                TextSpan(text: 'Support: '),
+                TextSpan(
+                  text: 'acme support desk',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-              ),
-              const SelectableText('acme selectable line'),
-              const ListTile(title: Text('acme Pro plan')),
-              DataTable(
-                columns: const [DataColumn(label: Text('Plan'))],
-                rows: const [
-                  DataRow(cells: [DataCell(Text('acme Pro'))]),
-                ],
-              ),
-              TextFormField(initialValue: 'acme in a field'),
+              ],
+            ),
+          ),
+          const SelectableText('acme selectable line'),
+          const ListTile(title: Text('acme Pro plan')),
+          DataTable(
+            columns: const [DataColumn(label: Text('Plan'))],
+            rows: const [
+              DataRow(cells: [DataCell(Text('acme Pro'))]),
             ],
           ),
-        ),
+          TextFormField(initialValue: 'acme in a field'),
+        ],
       ),
-    );
+    ),
+  ),
+);
 
 void main() {
   group('automatic discovery', () {
@@ -109,10 +109,9 @@ void main() {
       // Flutter draws an Icon as a font glyph inside a paragraph, so a naive
       // sweep would register it as a one-character searchable string.
       expect(controller.matchCount, 1);
-      expect(
-        controller.discoveredSources.map((s) => s.findableText),
-        ['plain text'],
-      );
+      expect(controller.discoveredSources.map((s) => s.findableText), [
+        'plain text',
+      ]);
     });
 
     testWidgets('counts a FindableText once, not twice', (tester) async {
@@ -123,9 +122,7 @@ void main() {
         MaterialApp(
           home: FindInPageScope(
             controller: controller,
-            child: const Scaffold(
-              body: FindableText('needle needle'),
-            ),
+            child: const Scaffold(body: FindableText('needle needle')),
           ),
         ),
       );

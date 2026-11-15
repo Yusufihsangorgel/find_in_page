@@ -114,9 +114,9 @@ class RenderHighlightOverlay extends RenderProxyBox {
     required FindInPageController controller,
     required Color color,
     required Color activeColor,
-  })  : _controller = controller,
-        _color = color,
-        _activeColor = activeColor {
+  }) : _controller = controller,
+       _color = color,
+       _activeColor = activeColor {
     _controller.addListener(markNeedsPaint);
   }
 

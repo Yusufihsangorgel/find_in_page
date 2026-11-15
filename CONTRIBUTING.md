@@ -18,8 +18,8 @@ A good bug report contains:
 
 Install Flutter. This package needs:
 
-* Dart SDK `^3.4.0`
-* Flutter `>=3.22.0`
+* Dart SDK `^3.11.0`
+* Flutter `>=3.41.0`
 
 ## Checks
 

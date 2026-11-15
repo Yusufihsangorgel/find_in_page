@@ -43,7 +43,10 @@ class _ExampleHome extends StatefulWidget {
 
 class _ExampleHomeState extends State<_ExampleHome> {
   final _controller = FindInPageController();
-  var _lazyList = false;
+
+  /// 0 is the page with the default bar, 1 the lazy list with the default
+  /// bar, 2 the page with a bar built through `barBuilder`.
+  var _mode = 0;
 
   @override
   void initState() {
@@ -61,12 +64,19 @@ class _ExampleHomeState extends State<_ExampleHome> {
   }
 
   void _searchForMode() {
-    _controller.search(_lazyList ? 'row 1997' : 'release');
+    if (_mode == 2) {
+      // The scope shows the custom bar on open, like it shows the default
+      // one on Ctrl+F.
+      _controller.open();
+      _controller.search('release');
+      return;
+    }
+    _controller.search(_mode == 1 ? 'row 1997' : 'release');
   }
 
-  void _setLazyList(bool value) {
-    if (value == _lazyList) return;
-    setState(() => _lazyList = value);
+  void _setMode(int value) {
+    if (value == _mode) return;
+    setState(() => _mode = value);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _searchForMode();
     });
@@ -74,44 +84,64 @@ class _ExampleHomeState extends State<_ExampleHome> {
 
   @override
   Widget build(BuildContext context) {
+    final customBar = _mode == 2;
     // The scope wraps the whole Scaffold, not just the body, so the AppBar
     // title is searchable too. Nothing in the AppBar was written for this
     // package; the scope reads the text Flutter renders inside it.
     return FindInPageScope(
       // A fresh scope per mode, so switching does not carry over the
       // other mode's matches.
-      key: ValueKey(_lazyList),
+      key: ValueKey(_mode),
       controller: _controller,
-      // The demo keeps its own bar on screen. This callback still has to
-      // exist so the web intercept takes Ctrl+F instead of leaving it to
-      // the browser's empty find-on-canvas.
-      showBar: false,
-      onOpenRequested: () {},
+      // The first two modes keep the default bar on screen in the app bar.
+      // The callback still has to exist so the web intercept takes Ctrl+F
+      // instead of leaving it to the browser's empty find-on-canvas. The
+      // third mode lets the scope show its bar, built by barBuilder.
+      showBar: customBar,
+      onOpenRequested: customBar ? null : () {},
+      barBuilder: (context, session, onClose) =>
+          _MaterialFindBar(session: session, onClose: onClose),
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_lazyList ? '2,000-row list' : 'Release notes'),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(64),
-            child: ExcludeFromFind(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                child: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: FindBar(
-                    controller: _controller,
-                    autofocus: false,
-                    onClose: _controller.clearSearch,
-                  ),
+          title: Text(switch (_mode) {
+            1 => '2,000-row list',
+            2 => 'Release notes, custom bar',
+            _ => 'Release notes',
+          }),
+          actions: [
+            if (customBar)
+              ExcludeFromFind(
+                child: IconButton(
+                  tooltip: 'Find in page',
+                  icon: const Icon(Icons.search),
+                  onPressed: _controller.open,
                 ),
               ),
-            ),
-          ),
+          ],
+          bottom: customBar
+              ? null
+              : PreferredSize(
+                  preferredSize: const Size.fromHeight(64),
+                  child: ExcludeFromFind(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: FindBar(
+                          controller: _controller,
+                          autofocus: false,
+                          onClose: _controller.clearSearch,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
         ),
-        body: _lazyList ? const _LazyListDemo() : const _UnwrappedPage(),
+        body: _mode == 1 ? const _LazyListDemo() : const _UnwrappedPage(),
         bottomNavigationBar: ExcludeFromFind(
           child: NavigationBar(
-            selectedIndex: _lazyList ? 1 : 0,
-            onDestinationSelected: (index) => _setLazyList(index == 1),
+            selectedIndex: _mode,
+            onDestinationSelected: _setMode,
             destinations: const [
               NavigationDestination(
                 icon: Icon(Icons.article_outlined),
@@ -121,7 +151,129 @@ class _ExampleHomeState extends State<_ExampleHome> {
                 icon: Icon(Icons.list),
                 label: '2,000 rows',
               ),
+              NavigationDestination(
+                icon: Icon(Icons.palette_outlined),
+                label: 'Custom bar',
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A find bar made of Material widgets, which the scope shows through
+/// `barBuilder`. A bar in any design system follows the same pattern. It
+/// reads the session, calls its methods, and calls onClose to close.
+class _MaterialFindBar extends StatefulWidget {
+  const _MaterialFindBar({required this.session, required this.onClose});
+
+  final FindSession session;
+  final VoidCallback onClose;
+
+  @override
+  State<_MaterialFindBar> createState() => _MaterialFindBarState();
+}
+
+class _MaterialFindBarState extends State<_MaterialFindBar> {
+  late final _text = TextEditingController(text: widget.session.query);
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.session.addListener(_syncText);
+    // The scope leaves focus to a custom bar. Taking it here lands typing
+    // in the field, and focus goes back where it was when the bar closes.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_syncText);
+    _text.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _syncText() {
+    if (!_focus.hasFocus && _text.text != widget.session.query) {
+      _text.text = widget.session.query;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = widget.session;
+    return Card(
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: ListenableBuilder(
+            listenable: session,
+            builder: (context, _) {
+              final active = session.activeMatchIndex;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: SizedBox(
+                      width: 160,
+                      child: TextField(
+                        controller: _text,
+                        focusNode: _focus,
+                        decoration: const InputDecoration(
+                          hintText: 'Find in page',
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                        onChanged: session.search,
+                        onSubmitted: (_) {
+                          session.next();
+                          _focus.requestFocus();
+                        },
+                      ),
+                    ),
+                  ),
+                  if (session.query.isNotEmpty)
+                    Text(
+                      active == null
+                          ? '0/0'
+                          : '${active + 1}/${session.matchCount}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  IconButton(
+                    tooltip: 'Match case',
+                    isSelected: session.caseSensitive,
+                    icon: const Icon(Icons.text_fields),
+                    onPressed: () => session.search(
+                      session.query,
+                      caseSensitive: !session.caseSensitive,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Previous match',
+                    icon: const Icon(Icons.keyboard_arrow_up),
+                    onPressed: session.previous,
+                  ),
+                  IconButton(
+                    tooltip: 'Next match',
+                    icon: const Icon(Icons.keyboard_arrow_down),
+                    onPressed: session.next,
+                  ),
+                  IconButton(
+                    tooltip: 'Close',
+                    icon: const Icon(Icons.close),
+                    onPressed: widget.onClose,
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -175,10 +327,7 @@ class _UnwrappedPage extends StatelessWidget {
               ],
               rows: const [
                 DataRow(
-                  cells: [
-                    DataCell(Text('stable')),
-                    DataCell(Text('released')),
-                  ],
+                  cells: [DataCell(Text('stable')), DataCell(Text('released'))],
                 ),
                 DataRow(
                   cells: [
@@ -187,10 +336,7 @@ class _UnwrappedPage extends StatelessWidget {
                   ],
                 ),
                 DataRow(
-                  cells: [
-                    DataCell(Text('main')),
-                    DataCell(Text('untagged')),
-                  ],
+                  cells: [DataCell(Text('main')), DataCell(Text('untagged'))],
                 ),
               ],
             ),
@@ -216,8 +362,10 @@ class _UnwrappedPage extends StatelessWidget {
                     ),
                   ),
                   const TextSpan(
-                      text: '. Migrate to TextScaler now; a fix '
-                          'rule rewrites most call sites.'),
+                    text:
+                        '. Migrate to TextScaler now; a fix '
+                        'rule rewrites most call sites.',
+                  ),
                 ],
               ),
             ),
@@ -326,14 +474,16 @@ class _HighlightedRow extends StatelessWidget {
       if (match.start > cursor) {
         spans.add(TextSpan(text: text.substring(cursor, match.start)));
       }
-      spans.add(TextSpan(
-        text: text.substring(match.start, match.end),
-        style: TextStyle(
-          backgroundColor: i == activeMatchIndex
-              ? const Color(0xFFFFB74D)
-              : const Color(0xFFFFF59D),
+      spans.add(
+        TextSpan(
+          text: text.substring(match.start, match.end),
+          style: TextStyle(
+            backgroundColor: i == activeMatchIndex
+                ? const Color(0xFFFFB74D)
+                : const Color(0xFFFFF59D),
+          ),
         ),
-      ));
+      );
       cursor = match.end;
     }
     if (cursor < text.length) spans.add(TextSpan(text: text.substring(cursor)));

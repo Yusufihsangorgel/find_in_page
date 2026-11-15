@@ -14,8 +14,9 @@ void main() {
   /// Finds the discovered source whose text starts with [prefix].
   RenderedTextSource sourceFor(WidgetTester tester, String prefix) {
     final root = tester.binding.rootElement!.renderObject!;
-    return discoverTextSources(root)
-        .firstWhere((s) => s.findableText.startsWith(prefix));
+    return discoverTextSources(
+      root,
+    ).firstWhere((s) => s.findableText.startsWith(prefix));
   }
 
   // A plain lazy `ListView` cannot host this test: measured, a target 2000px
@@ -45,8 +46,11 @@ void main() {
       ),
     );
     expect(controller.offset, 0);
-    expect(tester.getRect(find.text('needle down here')).top, greaterThan(600),
-        reason: 'the target has to start off screen for this to mean anything');
+    expect(
+      tester.getRect(find.text('needle down here')).top,
+      greaterThan(600),
+      reason: 'the target has to start off screen for this to mean anything',
+    );
 
     sourceFor(tester, 'needle').showMatchOnScreen(0, 6);
     await tester.pumpAndSettle();
@@ -67,10 +71,7 @@ void main() {
           body: SingleChildScrollView(
             controller: controller,
             child: const Column(
-              children: [
-                Text('needle at the top'),
-                SizedBox(height: 3000),
-              ],
+              children: [Text('needle at the top'), SizedBox(height: 3000)],
             ),
           ),
         ),
@@ -81,8 +82,11 @@ void main() {
     sourceFor(tester, 'needle').showMatchOnScreen(0, 6);
     await tester.pumpAndSettle();
 
-    expect(controller.offset, before,
-        reason: 'scrolling text that is already on screen would be a jolt');
+    expect(
+      controller.offset,
+      before,
+      reason: 'scrolling text that is already on screen would be a jolt',
+    );
   });
 
   testWidgets('a detached source returns instead of throwing', (tester) async {

@@ -60,13 +60,23 @@ void main() {
 
     final peak = plain.reduce(math.max);
     expect(total, greaterThan(0), reason: 'the fixture must hold matches');
-    expect(lazy, everyElement(total),
-        reason: 'FindableListView claims a count that does not move while '
-            'you scroll, and the figure says so');
-    expect(plain.toSet().length, greaterThan(1),
-        reason: 'without drift in the plain arm the figure has no subject');
-    expect(peak, lessThan(total),
-        reason: 'the plain arm must never hold the whole list at once');
+    expect(
+      lazy,
+      everyElement(total),
+      reason:
+          'FindableListView claims a count that does not move while '
+          'you scroll, and the figure says so',
+    );
+    expect(
+      plain.toSet().length,
+      greaterThan(1),
+      reason: 'without drift in the plain arm the figure has no subject',
+    );
+    expect(
+      peak,
+      lessThan(total),
+      reason: 'the plain arm must never hold the whole list at once',
+    );
 
     _output.writeAsStringSync(_svg(offsets, plain, lazy, total));
 
@@ -74,8 +84,10 @@ void main() {
     stdout.writeln('rows              $_rowCount');
     stdout.writeln('matches in data   $total');
     stdout.writeln('positions read    ${offsets.length}');
-    stdout.writeln('ListView.builder  $low..$peak, reading $low at '
-        '${plain.where((count) => count == low).length} positions');
+    stdout.writeln(
+      'ListView.builder  $low..$peak, reading $low at '
+      '${plain.where((count) => count == low).length} positions',
+    );
     stdout.writeln('FindableListView  ${lazy.toSet().single} everywhere');
     stdout.writeln('wrote ${_output.path}: ${_output.lengthSync()} bytes');
   });
@@ -116,9 +128,7 @@ int _occurrences(List<String> rows) {
 
 List<double> _offsets() {
   final maxScroll = _rowCount * _itemExtent - _viewport;
-  return [
-    for (var i = 0; i < _samples; i++) maxScroll * i / (_samples - 1),
-  ];
+  return [for (var i = 0; i < _samples; i++) maxScroll * i / (_samples - 1)];
 }
 
 /// A `ListView.builder` of `FindableText`, which is what the README's lazy
@@ -133,18 +143,18 @@ Future<List<int>> _sweepPlain(
   final scroll = ScrollController();
   addTearDown(scroll.dispose);
 
-  await tester.pumpWidget(_app(
-    controller,
-    ListView.builder(
-      controller: scroll,
-      itemCount: rows.length,
-      itemExtent: _itemExtent,
-      itemBuilder: (context, index) => SizedBox(
-        height: _itemExtent,
-        child: FindableText(rows[index]),
+  await tester.pumpWidget(
+    _app(
+      controller,
+      ListView.builder(
+        controller: scroll,
+        itemCount: rows.length,
+        itemExtent: _itemExtent,
+        itemBuilder: (context, index) =>
+            SizedBox(height: _itemExtent, child: FindableText(rows[index])),
       ),
     ),
-  ));
+  );
   return _sweep(tester, controller, scroll, offsets);
 }
 
@@ -165,35 +175,35 @@ Future<List<int>> _sweepLazy(
   await tester.pumpWidget(const SizedBox());
   await tester.pump();
 
-  await tester.pumpWidget(_app(
-    controller,
-    FindableListView(
-      itemCount: rows.length,
-      itemExtent: _itemExtent,
-      scrollController: scroll,
-      findableTextOf: (index) => rows[index],
-      itemBuilder: (context, index, matches, activeMatchIndex) => SizedBox(
-        height: _itemExtent,
-        child: Text(rows[index]),
+  await tester.pumpWidget(
+    _app(
+      controller,
+      FindableListView(
+        itemCount: rows.length,
+        itemExtent: _itemExtent,
+        scrollController: scroll,
+        findableTextOf: (index) => rows[index],
+        itemBuilder: (context, index, matches, activeMatchIndex) =>
+            SizedBox(height: _itemExtent, child: Text(rows[index])),
       ),
     ),
-  ));
+  );
   return _sweep(tester, controller, scroll, offsets);
 }
 
 Widget _app(FindInPageController controller, Widget list) => MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: SizedBox(
-          height: _viewport,
-          child: FindInPageScope(
-            controller: controller,
-            showBar: false,
-            child: list,
-          ),
-        ),
+  debugShowCheckedModeBanner: false,
+  home: Scaffold(
+    body: SizedBox(
+      height: _viewport,
+      child: FindInPageScope(
+        controller: controller,
+        showBar: false,
+        child: list,
       ),
-    );
+    ),
+  ),
+);
 
 /// Reads `matchCount` at every offset.
 ///
@@ -215,21 +225,20 @@ Future<List<int>> _sweep(
     await tester.pump();
     // Revealing an active match animates the viewport. Both arms have to be
     // read at the same places or the two curves are not comparable.
-    expect(scroll.offset, moreOrLessEquals(offset, epsilon: 0.5),
-        reason: 'the sweep landed somewhere other than the offset it asked '
-            'for; this reading belongs to a different position');
+    expect(
+      scroll.offset,
+      moreOrLessEquals(offset, epsilon: 0.5),
+      reason:
+          'the sweep landed somewhere other than the offset it asked '
+          'for; this reading belongs to a different position',
+    );
     controller.search(_query);
     counts.add(controller.matchCount);
   }
   return counts;
 }
 
-String _svg(
-  List<double> offsets,
-  List<int> plain,
-  List<int> lazy,
-  int total,
-) {
+String _svg(List<double> offsets, List<int> plain, List<int> lazy, int total) {
   const w = 900.0, h = 452.0;
   const left = 88.0, right = 34.0, top = 92.0, bottom = 120.0;
   const plotW = w - left - right, plotH = h - top - bottom;
@@ -239,23 +248,29 @@ String _svg(
   double y(num count) => top + plotH - plotH * count / total;
 
   String line(List<int> series) => [
-        for (var i = 0; i < n; i++)
-          '${i == 0 ? 'M' : 'L'} ${x(i).toStringAsFixed(1)} '
-              '${y(series[i]).toStringAsFixed(1)}',
-      ].join(' ');
+    for (var i = 0; i < n; i++)
+      '${i == 0 ? 'M' : 'L'} ${x(i).toStringAsFixed(1)} '
+          '${y(series[i]).toStringAsFixed(1)}',
+  ].join(' ');
 
   final step = total <= 20 ? 5 : (total <= 60 ? 10 : 20);
   final grid = StringBuffer();
   for (var v = 0; v <= total - step ~/ 2; v += step) {
     final gy = y(v).toStringAsFixed(1);
-    grid.writeln('<line x1="$left" y1="$gy" x2="${w - right}" y2="$gy" '
-        'stroke="#e3e6ea" stroke-width="1"/>');
-    grid.writeln('<text x="${left - 12}" y="${y(v) + 4}" text-anchor="end" '
-        'font-size="12" fill="#6b7280">$v</text>');
+    grid.writeln(
+      '<line x1="$left" y1="$gy" x2="${w - right}" y2="$gy" '
+      'stroke="#e3e6ea" stroke-width="1"/>',
+    );
+    grid.writeln(
+      '<text x="${left - 12}" y="${y(v) + 4}" text-anchor="end" '
+      'font-size="12" fill="#6b7280">$v</text>',
+    );
   }
   // The total sits on the axis as well as on the line.
-  grid.writeln('<text x="${left - 12}" y="${y(total) + 4}" text-anchor="end" '
-      'font-size="12" font-weight="600" fill="#2563eb">$total</text>');
+  grid.writeln(
+    '<text x="${left - 12}" y="${y(total) + 4}" text-anchor="end" '
+    'font-size="12" font-weight="600" fill="#2563eb">$total</text>',
+  );
 
   final ticks = [
     for (var i = 0; i < n; i++)

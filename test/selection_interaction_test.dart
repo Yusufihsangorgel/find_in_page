@@ -20,6 +20,12 @@ const _selectionFill = Color(0xCC778899);
 
 const _haystack = 'needle in the needle stack';
 
+/// The query field inside the bar.
+final _queryField = find.descendant(
+  of: find.byType(FindBar),
+  matching: find.byType(EditableText),
+);
+
 Offset _caretOf(RenderParagraph paragraph, int offset) {
   const caret = Rect.fromLTWH(0, 0, 2, 20);
   // getOffsetForCaret returns the top of the line. A drag that stays on
@@ -48,18 +54,17 @@ RenderHighlightOverlay _overlayOf(WidgetTester tester) {
 /// Material rrect painted first, or the inactive fill painted before the
 /// active one, fails a check that only cares that the colour is there.
 PaintPattern _painted(Symbol method, Color color) {
-  return paints
-    ..something((name, args) {
-      if (name != method || args.isEmpty || args.last is! Paint) {
-        return false;
-      }
-      final painted = (args.last as Paint).color;
-      const limit = 1 / 255;
-      return (painted.a - color.a).abs() < limit &&
-          (painted.r - color.r).abs() < limit &&
-          (painted.g - color.g).abs() < limit &&
-          (painted.b - color.b).abs() < limit;
-    });
+  return paints..something((name, args) {
+    if (name != method || args.isEmpty || args.last is! Paint) {
+      return false;
+    }
+    final painted = (args.last as Paint).color;
+    const limit = 1 / 255;
+    return (painted.a - color.a).abs() < limit &&
+        (painted.r - color.r).abs() < limit &&
+        (painted.g - color.g).abs() < limit &&
+        (painted.b - color.b).abs() < limit;
+  });
 }
 
 void _expectFindHighlights(RenderObject overlay) {
@@ -101,10 +106,7 @@ Widget _selectionInsideScope({
       controller: controller,
       highlightColor: _findFill,
       activeHighlightColor: _findActive,
-      child: SelectionArea(
-        onSelectionChanged: onSelectionChanged,
-        child: body,
-      ),
+      child: SelectionArea(onSelectionChanged: onSelectionChanged, child: body),
     ),
   );
 }
@@ -128,15 +130,14 @@ Widget _scopeInsideSelection({
 }
 
 Widget _body() => const Scaffold(
-      body: Center(
-        child: Text(_haystack, selectionColor: _selectionFill),
-      ),
-    );
+  body: Center(child: Text(_haystack, selectionColor: _selectionFill)),
+);
 
 void main() {
   group('SelectionArea', () {
-    testWidgets('finds and highlights text the area made selectable',
-        (tester) async {
+    testWidgets('finds and highlights text the area made selectable', (
+      tester,
+    ) async {
       final controller = FindInPageController();
       addTearDown(controller.dispose);
 
@@ -144,7 +145,7 @@ void main() {
         _selectionInsideScope(controller: controller, body: _body()),
       );
       await _openFindBar(tester);
-      await tester.enterText(find.byType(TextField), 'needle');
+      await tester.enterText(_queryField, 'needle');
       await tester.pump();
 
       expect(controller.matchCount, 2);
@@ -152,8 +153,7 @@ void main() {
       _expectFindHighlights(_overlayOf(tester));
     });
 
-    testWidgets(
-        'selecting while the bar is open paints both highlights and '
+    testWidgets('selecting while the bar is open paints both highlights and '
         'does not swallow either side\'s gestures', (tester) async {
       final controller = FindInPageController();
       addTearDown(controller.dispose);
@@ -167,7 +167,7 @@ void main() {
         ),
       );
       await _openFindBar(tester);
-      await tester.enterText(find.byType(TextField), 'needle');
+      await tester.enterText(_queryField, 'needle');
       await tester.pump();
       expect(controller.matchCount, 2);
       expect(controller.activeMatchIndex, 0);
@@ -195,46 +195,47 @@ void main() {
     });
 
     testWidgets(
-        'a SelectionArea outside the scope, the other ordinary wrapping, '
-        'behaves the same', (tester) async {
-      final controller = FindInPageController();
-      addTearDown(controller.dispose);
-      SelectedContent? selected;
+      'a SelectionArea outside the scope, the other ordinary wrapping, '
+      'behaves the same',
+      (tester) async {
+        final controller = FindInPageController();
+        addTearDown(controller.dispose);
+        SelectedContent? selected;
 
-      await tester.pumpWidget(
-        _scopeInsideSelection(
-          controller: controller,
-          onSelectionChanged: (value) => selected = value,
-          body: _body(),
-        ),
-      );
-      await _openFindBar(tester);
-      await tester.enterText(find.byType(TextField), 'needle');
-      await tester.pump();
-      expect(controller.matchCount, 2);
-      _expectFindHighlights(_overlayOf(tester));
+        await tester.pumpWidget(
+          _scopeInsideSelection(
+            controller: controller,
+            onSelectionChanged: (value) => selected = value,
+            body: _body(),
+          ),
+        );
+        await _openFindBar(tester);
+        await tester.enterText(_queryField, 'needle');
+        await tester.pump();
+        expect(controller.matchCount, 2);
+        _expectFindHighlights(_overlayOf(tester));
 
-      final paragraph = _paragraphOf(tester, _haystack);
-      await _dragSelect(
-        tester,
-        from: _caretOf(paragraph, 0),
-        to: _caretOf(paragraph, 6),
-      );
-      expect(paragraph.selections, isNotEmpty);
-      expect(paragraph.selections.single.isCollapsed, isFalse);
-      expect(selected?.plainText, isNotEmpty);
-      expect(paragraph, _painted(#drawRect, _selectionFill));
-      _expectFindHighlights(_overlayOf(tester));
+        final paragraph = _paragraphOf(tester, _haystack);
+        await _dragSelect(
+          tester,
+          from: _caretOf(paragraph, 0),
+          to: _caretOf(paragraph, 6),
+        );
+        expect(paragraph.selections, isNotEmpty);
+        expect(paragraph.selections.single.isCollapsed, isFalse);
+        expect(selected?.plainText, isNotEmpty);
+        expect(paragraph, _painted(#drawRect, _selectionFill));
+        _expectFindHighlights(_overlayOf(tester));
 
-      await tester.tap(find.byTooltip('Next match'));
-      await tester.pump();
-      expect(controller.activeMatchIndex, 1);
-    });
+        await tester.tap(find.byTooltip('Next match'));
+        await tester.pump();
+        expect(controller.activeMatchIndex, 1);
+      },
+    );
   });
 
   group('SelectableText', () {
-    testWidgets(
-        'selecting while the bar is open paints both highlights and '
+    testWidgets('selecting while the bar is open paints both highlights and '
         'does not swallow either side\'s gestures', (tester) async {
       final controller = FindInPageController();
       addTearDown(controller.dispose);
@@ -260,7 +261,7 @@ void main() {
         ),
       );
       await _openFindBar(tester);
-      await tester.enterText(find.byType(TextField), 'needle');
+      await tester.enterText(_queryField, 'needle');
       await tester.pump();
 
       expect(controller.matchCount, 2);

@@ -13,32 +13,31 @@ const _bodyKey = ValueKey('body');
 const _rowKey = ValueKey('row');
 
 Widget _page(FindInPageController controller, Widget body) => MaterialApp(
-      home: FindInPageScope(
-        controller: controller,
-        showBar: false,
-        onOpenRequested: () {},
-        highlightColor: _findFill,
-        activeHighlightColor: _findActive,
-        child: Scaffold(
-          appBar: AppBar(title: const Text('acme docs')),
-          body: body,
-        ),
-      ),
-    );
+  home: FindInPageScope(
+    controller: controller,
+    showBar: false,
+    onOpenRequested: () {},
+    highlightColor: _findFill,
+    activeHighlightColor: _findActive,
+    child: Scaffold(
+      appBar: AppBar(title: const Text('acme docs')),
+      body: body,
+    ),
+  ),
+);
 
 /// Sixty short tiles, with the searched word only in those at [needles].
 Widget _verticalList({
   Set<int> needles = const {1},
   ScrollController? scroll,
-}) =>
-    ListView(
-      key: _bodyKey,
-      controller: scroll,
-      children: [
-        for (var i = 0; i < 60; i++)
-          ListTile(title: Text(needles.contains(i) ? 'needle $i' : 'row $i')),
-      ],
-    );
+}) => ListView(
+  key: _bodyKey,
+  controller: scroll,
+  children: [
+    for (var i = 0; i < 60; i++)
+      ListTile(title: Text(needles.contains(i) ? 'needle $i' : 'row $i')),
+  ],
+);
 
 RenderHighlightOverlay _overlayOf(WidgetTester tester) =>
     tester.renderObject<RenderHighlightOverlay>(find.byType(HighlightOverlay));
@@ -69,16 +68,15 @@ List<RRect> _highlights(RenderHighlightOverlay overlay) {
   final painted = <RRect>[];
   expect(
     overlay,
-    paints
-      ..everything((name, args) {
-        if (name != #drawRRect) return true;
-        final paint = args.last as Paint;
-        if (_isColor(paint.color, _findFill) ||
-            _isColor(paint.color, _findActive)) {
-          painted.add(args.first as RRect);
-        }
-        return true;
-      }),
+    paints..everything((name, args) {
+      if (name != #drawRRect) return true;
+      final paint = args.last as Paint;
+      if (_isColor(paint.color, _findFill) ||
+          _isColor(paint.color, _findActive)) {
+        painted.add(args.first as RRect);
+      }
+      return true;
+    }),
   );
   return painted;
 }
@@ -137,9 +135,7 @@ void main() {
       final scroll = ScrollController();
       addTearDown(scroll.dispose);
 
-      await tester.pumpWidget(
-        _page(controller, _verticalList(scroll: scroll)),
-      );
+      await tester.pumpWidget(_page(controller, _verticalList(scroll: scroll)));
       controller.search('needle');
       await tester.pump();
       final overlay = _overlayOf(tester);
@@ -193,8 +189,7 @@ void main() {
       expect(rect.height, lessThan(text.height + 4));
     });
 
-    testWidgets(
-        'a match in a sideways list scrolled out of view paints '
+    testWidgets('a match in a sideways list scrolled out of view paints '
         'nothing', (tester) async {
       final controller = FindInPageController();
       addTearDown(controller.dispose);

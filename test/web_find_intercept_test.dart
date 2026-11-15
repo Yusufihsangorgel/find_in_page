@@ -59,92 +59,79 @@ void main() {
     TargetPlatform.macOS,
   });
 
-  testWidgets(
-    'the find shortcut is reported as handled',
-    (tester) async {
-      await tester.pumpWidget(app(const FindInPageScope(child: SizedBox())));
+  testWidgets('the find shortcut is reported as handled', (tester) async {
+    await tester.pumpWidget(app(const FindInPageScope(child: SizedBox())));
 
-      final handled = await sendChord(tester, modifier: findModifier());
-      await tester.pump();
+    final handled = await sendChord(tester, modifier: findModifier());
+    await tester.pump();
 
-      expect(handled, isTrue,
-          reason: 'the engine maps this bit onto preventDefault on web');
-      expect(find.byType(FindBar), findsOneWidget);
-    },
-    variant: platforms,
-  );
+    expect(
+      handled,
+      isTrue,
+      reason: 'the engine maps this bit onto preventDefault on web',
+    );
+    expect(find.byType(FindBar), findsOneWidget);
+  }, variant: platforms);
 
-  testWidgets(
-    'showBar: false with onOpenRequested is still handled',
-    (tester) async {
-      var opened = 0;
-      await tester.pumpWidget(app(
+  testWidgets('showBar: false with onOpenRequested is still handled', (
+    tester,
+  ) async {
+    var opened = 0;
+    await tester.pumpWidget(
+      app(
         FindInPageScope(
           showBar: false,
           onOpenRequested: () => opened++,
           child: const SizedBox(),
         ),
-      ));
+      ),
+    );
 
-      expect(
-        await sendChord(tester, modifier: findModifier()),
-        isTrue,
-        reason: 'a custom bar is still a replacement for the browser\'s',
-      );
-      expect(opened, 1);
-      expect(find.byType(FindBar), findsNothing);
-    },
-    variant: platforms,
-  );
+    expect(
+      await sendChord(tester, modifier: findModifier()),
+      isTrue,
+      reason: 'a custom bar is still a replacement for the browser\'s',
+    );
+    expect(opened, 1);
+    expect(find.byType(FindBar), findsNothing);
+  }, variant: platforms);
 
-  testWidgets(
-    'does not swallow the key when the bar is disabled',
-    (tester) async {
-      await tester.pumpWidget(app(
-        const FindInPageScope(
-          showBar: false,
-          child: SizedBox(),
-        ),
-      ));
+  testWidgets('does not swallow the key when the bar is disabled', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      app(const FindInPageScope(showBar: false, child: SizedBox())),
+    );
 
-      expect(
-        await sendChord(tester, modifier: findModifier()),
-        isFalse,
-        reason: 'no bar and no onOpenRequested: leave the key to the browser',
-      );
-      expect(find.byType(FindBar), findsNothing);
-    },
-    variant: platforms,
-  );
+    expect(
+      await sendChord(tester, modifier: findModifier()),
+      isFalse,
+      reason: 'no bar and no onOpenRequested: leave the key to the browser',
+    );
+    expect(find.byType(FindBar), findsNothing);
+  }, variant: platforms);
 
-  testWidgets(
-    'does not swallow the key when no scope is mounted',
-    (tester) async {
-      await tester.pumpWidget(app(const SizedBox()));
+  testWidgets('does not swallow the key when no scope is mounted', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app(const SizedBox()));
 
-      expect(
-        await sendChord(tester, modifier: findModifier()),
-        isFalse,
-      );
-      expect(find.byType(FindBar), findsNothing);
-    },
-    variant: platforms,
-  );
+    expect(await sendChord(tester, modifier: findModifier()), isFalse);
+    expect(find.byType(FindBar), findsNothing);
+  }, variant: platforms);
 
-  testWidgets(
-    'the other platform modifier is not find, off web',
-    (tester) async {
-      await tester.pumpWidget(app(const FindInPageScope(child: SizedBox())));
+  testWidgets('the other platform modifier is not find, off web', (
+    tester,
+  ) async {
+    await tester.pumpWidget(app(const FindInPageScope(child: SizedBox())));
 
-      expect(
-        await sendChord(tester, modifier: otherModifier()),
-        isFalse,
-        reason: 'only web treats Control and Meta as equivalent',
-      );
-      expect(find.byType(FindBar), findsNothing);
-    },
-    variant: platforms,
-  );
+    expect(
+      await sendChord(tester, modifier: otherModifier()),
+      isFalse,
+      reason: 'only web treats Control and Meta as equivalent',
+    );
+    expect(find.byType(FindBar), findsNothing);
+  }, variant: platforms);
 
   test('the capture listener is not attached on the VM', () {
     expect(kIsWeb, isFalse, reason: 'flutter test is not a browser');
@@ -164,8 +151,9 @@ void main() {
     expect(webFindInterceptIsAttached, isFalse);
   });
 
-  testWidgets('mounting a scope does not attach a DOM listener on the VM',
-      (tester) async {
+  testWidgets('mounting a scope does not attach a DOM listener on the VM', (
+    tester,
+  ) async {
     expect(kIsWeb, isFalse);
     await tester.pumpWidget(app(const FindInPageScope(child: SizedBox())));
     expect(webFindInterceptIsAttached, isFalse);

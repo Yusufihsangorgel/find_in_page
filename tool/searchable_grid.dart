@@ -63,7 +63,13 @@ void main() {
     try {
       await tester.pumpWidget(_Figure(controller: controller));
       await _openFindBar(tester);
-      await tester.enterText(find.byType(TextField), _query);
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(FindBar),
+          matching: find.byType(EditableText),
+        ),
+        _query,
+      );
       await tester.pumpAndSettle();
 
       // A blank figure is the failure this file exists to prevent.
@@ -75,8 +81,10 @@ void main() {
       debugDisableShadows = true;
     }
 
-    stdout.writeln('wrote ${_output.path}: '
-        '${controller.matchCount} matches, ${_output.lengthSync()} bytes');
+    stdout.writeln(
+      'wrote ${_output.path}: '
+      '${controller.matchCount} matches, ${_output.lengthSync()} bytes',
+    );
   });
 }
 
@@ -89,8 +97,9 @@ Future<void> _openFindBar(WidgetTester tester) async {
 }
 
 Future<void> _capture(WidgetTester tester) async {
-  final boundary =
-      tester.renderObject<RenderRepaintBoundary>(find.byKey(_captureKey));
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(_captureKey),
+  );
   await tester.runAsync(() async {
     final image = await boundary.toImage(pixelRatio: 2);
     try {
@@ -176,9 +185,13 @@ class _Grid extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Expanded(child: _Cell(label: 'AppBar', child: _AppBarCell())),
+                Expanded(
+                  child: _Cell(label: 'AppBar', child: _AppBarCell()),
+                ),
                 SizedBox(width: 18),
-                Expanded(child: _Cell(label: 'ListTile', child: _TileCell())),
+                Expanded(
+                  child: _Cell(label: 'ListTile', child: _TileCell()),
+                ),
               ],
             ),
           ),
@@ -186,9 +199,13 @@ class _Grid extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Expanded(child: _Cell(label: 'DataTable', child: _TableCell())),
+                Expanded(
+                  child: _Cell(label: 'DataTable', child: _TableCell()),
+                ),
                 SizedBox(width: 18),
-                Expanded(child: _Cell(label: 'Text.rich', child: _RichCell())),
+                Expanded(
+                  child: _Cell(label: 'Text.rich', child: _RichCell()),
+                ),
               ],
             ),
           ),
@@ -321,11 +338,14 @@ class _TableCell extends StatelessWidget {
         ],
         rows: const [
           DataRow(
-              cells: [DataCell(Text('stable')), DataCell(Text('released'))]),
-          DataRow(cells: [
-            DataCell(Text('beta')),
-            DataCell(Text('release candidate')),
-          ]),
+            cells: [DataCell(Text('stable')), DataCell(Text('released'))],
+          ),
+          DataRow(
+            cells: [
+              DataCell(Text('beta')),
+              DataCell(Text('release candidate')),
+            ],
+          ),
           DataRow(cells: [DataCell(Text('main')), DataCell(Text('untagged'))]),
         ],
       ),
@@ -342,8 +362,11 @@ class _RichCell extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(18, 0, 18, 12),
       child: Text.rich(
         TextSpan(
-          style:
-              TextStyle(fontSize: 16, height: 1.55, color: Color(0xFF1E293B)),
+          style: TextStyle(
+            fontSize: 16,
+            height: 1.55,
+            color: Color(0xFF1E293B),
+          ),
           children: [
             TextSpan(text: 'The legacy text scaling APIs go away in the next '),
             TextSpan(
