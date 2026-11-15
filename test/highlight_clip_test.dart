@@ -1,5 +1,6 @@
 import 'package:find_in_page/find_in_page.dart';
 import 'package:find_in_page/src/highlight_overlay.dart';
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

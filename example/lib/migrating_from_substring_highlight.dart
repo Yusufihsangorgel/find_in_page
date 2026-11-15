@@ -3,6 +3,7 @@
 // Run it with `flutter run -t lib/migrating_from_substring_highlight.dart`
 // from the example directory.
 import 'package:find_in_page/find_in_page.dart';
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 
 void main() => runApp(const MaterialApp(home: TrackSearchPage()));

@@ -1,6 +1,7 @@
 import 'package:find_in_page/find_in_page.dart';
 import 'package:find_in_page/src/web_find_intercept.dart';
 import 'package:flutter/foundation.dart';
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
