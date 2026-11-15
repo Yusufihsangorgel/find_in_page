@@ -14,6 +14,10 @@
 - Highlights for text you did not wrap are clipped to where the text is
   visible. A match scrolled under the app bar or out of a scroll view no
   longer paints an empty box over other content.
+- On the web, a match after a letter that gets longer when lowercased, such
+  as the Turkish dotted capital I (İ), came out one character late for every
+  such letter before it, and a match near the end of the text could end past
+  it. These offsets are now correct.
 - The web demo shows a loading screen while it downloads, with a link to the
   package page if it fails to load.
 - README: the custom UI example no longer throws when nothing matches, and the
