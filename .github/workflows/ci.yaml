@@ -52,8 +52,8 @@ jobs:
       # selection_interaction_test.dart passes SelectableText.selectionColor,
       # which it has from 3.32.0. The package code under lib is still checked.
       - run: |
-          mapfile -t files < <(git ls-files '*.dart' | grep -v -e '^test/highlight_clip_test.dart$' -e '^test/selection_interaction_test.dart$')
+          mapfile -t files < <(git -c core.quotePath=false ls-files '*.dart' | grep -v -e '^test/highlight_clip_test.dart$' -e '^test/selection_interaction_test.dart$')
           flutter analyze --no-fatal-infos "${files[@]}"
       - run: |
-          mapfile -t files < <(git ls-files 'test/*_test.dart' | grep -v -e '^test/highlight_clip_test.dart$' -e '^test/selection_interaction_test.dart$')
+          mapfile -t files < <(git -c core.quotePath=false ls-files 'test/*_test.dart' | grep -v -e '^test/highlight_clip_test.dart$' -e '^test/selection_interaction_test.dart$')
           flutter test --exclude-tags demo "${files[@]}"
