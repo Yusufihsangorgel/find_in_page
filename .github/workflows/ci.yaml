@@ -26,3 +26,26 @@ jobs:
       # Lowercasing can change a string's length on the web but not on the VM,
       # and the text offset tests only fail in a browser.
       - run: flutter test --platform chrome test/text_fold_test.dart test/controller_contract_test.dart test/fold_table_test.dart
+
+  # The oldest Flutter that pubspec.yaml accepts. The Dart ^3.4.0 constraint
+  # first shipped in Flutter 3.22.0; 3.22.3 is the last patch of that release.
+  # Code that leans on a newer API fails here before someone on the floor
+  # finds it.
+  floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.22.3
+      # flutter_lints 6 needs Dart 3.8, which this floor does not have, so this
+      # job lints with the newest release that resolves on Dart 3.4. Users of
+      # the package never resolve it; only this repo's checkout does.
+      - run: |
+          sed -i 's/^  flutter_lints: .*/  flutter_lints: ^4.0.0/' pubspec.yaml
+      - run: flutter pub get
+      # The older lint set enables rules the declared one dropped, so infos
+      # do not fail here. The test job still enforces the declared set.
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test --exclude-tags demo
