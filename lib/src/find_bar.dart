@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -20,10 +22,28 @@ import 'find_session.dart';
 /// Tab moves through the field, the toggles, previous, next and close, in
 /// that order and in either text direction.
 ///
-/// The query follows the field on every edit, including text an input
-/// method is still composing. Committing a composition that leaves the text
-/// unchanged does not run the search again. While a composition is active,
-/// Enter goes to the input method and does not move between matches.
+/// Text an input method is still composing is searched as it changes, and a
+/// commit that leaves the text unchanged does not search again. While a
+/// composition is active, Enter and Shift+Enter go to the input method and
+/// do not move between matches.
+///
+/// On Android, Fuchsia and iOS the buttons and the query field take taps
+/// across the touch target size of the platform, and the bar is one row of
+/// that height. When the toggles do not fit beside the field there, a
+/// search options button takes their place. Activating it shows the toggles
+/// in a second row, and activating it again, or Escape on a toggle, hides
+/// them. Tab then goes from the field to the options button, previous, next
+/// and close, and on to the toggles. The width set aside for the counter
+/// fits three digits on each side of the slash, which keeps the row steady
+/// when the counter first appears.
+///
+/// A bar too narrow for the field, the counter and the previous, next and
+/// close buttons in one row grows a second row, one hit height tall, and
+/// moves previous, next and close into it. A large text scale can need that
+/// too. The narrowest bar that fits is three button hit sizes plus its
+/// horizontal padding, which is 160 pixels with the default style on
+/// Android and Fuchsia, 148 on iOS and 112 on desktop platforms. A narrower
+/// bar overflows.
 ///
 /// `FindInPageScope` shows this bar out of the box. Embed it yourself for
 /// custom placement, or build it from `FindInPageScope.barBuilder`.
@@ -39,6 +59,7 @@ final class FindBar extends StatefulWidget {
     this.closeTooltip = 'Close',
     this.matchCaseTooltip = 'Match case',
     this.matchAccentsTooltip = 'Match accents',
+    this.optionsTooltip = 'Search options',
     this.showMatchCase = true,
     this.showMatchAccents = true,
     this.matchStatusLabel = _defaultMatchStatusLabel,
@@ -89,16 +110,22 @@ final class FindBar extends StatefulWidget {
   /// [FindSession.diacriticSensitive].
   final String matchAccentsTooltip;
 
+  /// Tooltip and accessible name of the button that shows and hides the
+  /// toggles on a touch platform, when they do not fit beside the field.
+  final String optionsTooltip;
+
   /// Whether the match case toggle is offered.
   ///
-  /// Even when true, both toggles are left out while the bar is too narrow
-  /// to fit them beside a field of [FindBarStyle.minFieldWidth].
+  /// The toggles sit beside the field when they fit beside a field of
+  /// [FindBarStyle.minFieldWidth]. When they do not, a desktop bar leaves
+  /// them out and a touch bar shows a search options button that brings
+  /// them up in a second row.
   final bool showMatchCase;
 
   /// Whether the match accents toggle is offered.
   ///
-  /// Even when true, both toggles are left out while the bar is too narrow
-  /// to fit them beside a field of [FindBarStyle.minFieldWidth].
+  /// It is placed and left out together with the match case toggle. See
+  /// [showMatchCase].
   final bool showMatchAccents;
 
   /// Builds what a screen reader announces when the match count changes,
@@ -149,9 +176,21 @@ class _FindBarState extends State<FindBar>
       GlobalKey<EditableTextState>();
   late final TextSelectionGestureDetectorBuilder _gestures =
       TextSelectionGestureDetectorBuilder(delegate: this);
+  final GlobalKey _matchCaseKey = GlobalKey(debugLabel: 'match case');
+  final GlobalKey _matchAccentsKey = GlobalKey(debugLabel: 'match accents');
+  final FocusNode _matchCaseFocus = FocusNode(debugLabel: 'FindBar case');
+  final FocusNode _matchAccentsFocus = FocusNode(debugLabel: 'FindBar accents');
+  final FocusNode _optionsFocus = FocusNode(debugLabel: 'FindBar options');
+
+  /// Whether the options button has the toggles row open.
+  bool _optionsOpen = false;
+
+  /// Whether the last layout showed the toggles row.
+  bool _optionsRowShown = false;
   bool _showSelectionHandles = false;
   FindFieldSelectionControls? _handles;
   FindBarStyle? _resolvedStyle;
+  FindBarFocusRequests? _focusRequests;
 
   @override
   GlobalKey<EditableTextState> get editableTextKey => _editableKey;
@@ -183,6 +222,18 @@ class _FindBarState extends State<FindBar>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The scope that shows this bar asks it for focus again when the find
+    // shortcut is pressed while it is open.
+    final requests = FindBarFocusScope.maybeOf(context);
+    if (!identical(requests, _focusRequests)) {
+      _focusRequests?._unregister(this);
+      _focusRequests = requests?.._register(this);
+    }
+  }
+
+  @override
   void didUpdateWidget(FindBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
@@ -194,12 +245,16 @@ class _FindBarState extends State<FindBar>
 
   @override
   void dispose() {
+    _focusRequests?._unregister(this);
     _session.removeListener(_syncFromController);
     // See the initState comment. If _focusNode still has primary focus here,
     // Flutter itself moves focus back to whatever held it before as part of
     // disposing a focused node.
     _text.dispose();
     _focusNode.dispose();
+    _matchCaseFocus.dispose();
+    _matchAccentsFocus.dispose();
+    _optionsFocus.dispose();
     super.dispose();
   }
 
@@ -221,6 +276,33 @@ class _FindBarState extends State<FindBar>
   bool get _isComposing {
     final composing = _text.value.composing;
     return composing.isValid && !composing.isCollapsed;
+  }
+
+  /// Moves focus into the query field and selects the query.
+  void _focusQuery() {
+    _text.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _text.text.length,
+    );
+    _focusNode.requestFocus();
+  }
+
+  bool get _toggleHasFocus =>
+      _matchCaseFocus.hasFocus || _matchAccentsFocus.hasFocus;
+
+  void _toggleOptions() {
+    // A toggle about to be hidden hands focus to the button that hides it.
+    if (_optionsOpen && _toggleHasFocus) _optionsFocus.requestFocus();
+    setState(() => _optionsOpen = !_optionsOpen);
+  }
+
+  /// Hides the toggles row when one of its toggles has focus, and moves
+  /// focus to the options button that showed it. Reports whether it did.
+  bool _dismissOptionsFromKeyboard() {
+    if (!_optionsRowShown || !_toggleHasFocus) return false;
+    setState(() => _optionsOpen = false);
+    _optionsFocus.requestFocus();
+    return true;
   }
 
   // Enter in the field and the search action. Focus stays in the field to
@@ -272,36 +354,31 @@ class _FindBarState extends State<FindBar>
     );
   }
 
-  /// The width the bar's contents need with [toggles] toggles showing.
-  ///
-  /// The buttons are exactly [FindBarStyle.buttonSize] wide, and the counter
-  /// is measured with the same style and text scale it is painted with.
-  double _widthWithToggles(
+  /// The width of [text] in the counter style, at the text scale the counter
+  /// is painted with.
+  static double _textWidth(
     FindBarStyle style,
-    String? counter,
+    String text,
     TextScaler textScaler,
     TextDirection textDirection,
-    int toggles,
   ) {
-    var counterWidth = 0.0;
-    if (counter != null) {
-      final painter = TextPainter(
-        text: TextSpan(text: counter, style: style.counterStyle),
-        textScaler: textScaler,
-        textDirection: textDirection,
-        maxLines: 1,
-      )..layout();
-      counterWidth = painter.width + _counterPadding.horizontal;
-      painter.dispose();
-    }
-    return style.minFieldWidth! +
-        _fieldGap +
-        counterWidth +
-        (toggles + 3) * style.buttonSize!;
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style.counterStyle),
+      textScaler: textScaler,
+      textDirection: textDirection,
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
   }
 
   static const double _fieldGap = 4;
-  static const EdgeInsets _counterPadding = EdgeInsets.symmetric(horizontal: 6);
+
+  /// Space on each side of the counter. A touch bar keeps it narrow, since
+  /// the hit area of the next button already sets the counter apart.
+  static EdgeInsets _counterPaddingFor({required bool touch}) =>
+      EdgeInsets.symmetric(horizontal: touch ? 2 : 6);
 
   @override
   Widget build(BuildContext context) {
@@ -360,108 +437,242 @@ class _FindBarState extends State<FindBar>
     final textDirection = Directionality.of(context);
     final count = session.matchCount;
     final active = session.activeMatchIndex;
+    // The same numbers the announced label gets. A session can report
+    // matches with none of them active, which shows as 0 of the count.
     final counter = session.query.isEmpty
         ? null
-        : (count == 0 || active == null ? '0/0' : '${active + 1}/$count');
+        : (count == 0 ? '0/0' : '${(active ?? -1) + 1}/$count');
     final toggles =
         (widget.showMatchCase ? 1 : 0) + (widget.showMatchAccents ? 1 : 0);
 
+    final extent = FindBarIconButton.extentOf(style);
+    final touch = FindBarIconButton.touchTargetSize > 0;
+    final minField = style.minFieldWidth!;
+    final counterPadding = _counterPaddingFor(touch: touch);
+    final counterText = counter == null
+        ? 0.0
+        : _textWidth(style, counter, textScaler, textDirection);
+    // A touch bar sets aside room for the widest counter of three digits a
+    // side, or of as many as the match count has, before a counter shows.
+    // The row then holds still when the first letter is typed.
+    final digits = math.max(3, '$count'.length);
+    final reservedText = touch
+        ? math.max(
+            counterText,
+            _textWidth(
+              style,
+              '${'0' * digits}/${'0' * digits}',
+              textScaler,
+              textDirection,
+            ),
+          )
+        : counterText;
+    final showCounterSlot = touch || counter != null;
+    final counterSlot = showCounterSlot
+        ? reservedText + counterPadding.horizontal
+        : 0.0;
+
+    // The toggles, wherever the layout puts them. Their global keys carry
+    // focus and hover state across a move between the rows.
+    List<Widget> toggleButtons({required bool inline}) => [
+      if (widget.showMatchCase)
+        _ordered(
+          inline ? 1 : 6,
+          key: const ValueKey('matchCase'),
+          buttonKey: _matchCaseKey,
+          focusNode: _matchCaseFocus,
+          glyph: FindBarGlyph.matchCase,
+          label: widget.matchCaseTooltip,
+          toggled: session.caseSensitive,
+          style: style,
+          onPressed: () => session.search(
+            session.query,
+            caseSensitive: !session.caseSensitive,
+          ),
+        ),
+      if (widget.showMatchAccents)
+        _ordered(
+          inline ? 2 : 7,
+          key: const ValueKey('matchAccents'),
+          buttonKey: _matchAccentsKey,
+          focusNode: _matchAccentsFocus,
+          glyph: FindBarGlyph.matchAccents,
+          label: widget.matchAccentsTooltip,
+          toggled: session.diacriticSensitive,
+          style: style,
+          onPressed: () => session.search(
+            session.query,
+            diacriticSensitive: !session.diacriticSensitive,
+          ),
+        ),
+    ];
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final showToggles =
-            toggles > 0 &&
-            constraints.maxWidth >=
-                _widthWithToggles(
-                  style,
-                  counter,
-                  textScaler,
-                  textDirection,
-                  toggles,
-                );
-        return Row(
+        final room = constraints.maxWidth;
+        // The field at its narrowest, the counter, and previous, next and
+        // close at their full hit size.
+        final oneRow = minField + _fieldGap + counterSlot + 3 * extent;
+        final togglesInline = toggles > 0 && room >= oneRow + toggles * extent;
+        // Where the toggles do not fit beside the field, a touch bar offers
+        // them through an options button and a desktop bar leaves them out.
+        final options = touch && toggles > 0 && !togglesInline;
+        final optionsExtent = options ? extent : 0.0;
+        // Too narrow for one row. Previous, next and close move below the
+        // field and keep their full hit size.
+        final stacked = room < oneRow + optionsExtent;
+        // A toggle that has focus stays on screen when the bar narrows.
+        if (options && !_optionsOpen && _toggleHasFocus) _optionsOpen = true;
+        final optionsRow = options && _optionsOpen;
+        _optionsRowShown = optionsRow;
+        // Beside the field in a stacked bar, the counter only gets what
+        // leaves the field at its narrowest. A longer one is scaled down.
+        final counterMax = stacked
+            ? math.max(
+                0.0,
+                room -
+                    _fieldGap -
+                    minField -
+                    optionsExtent -
+                    counterPadding.horizontal,
+              )
+            : double.infinity;
+
+        // The same widgets in every layout, which keeps the field and a
+        // focused button in place when the bar switches between them.
+        final controls = Flex(
+          direction: stacked ? Axis.vertical : Axis.horizontal,
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: stacked
+              ? CrossAxisAlignment.stretch
+              : CrossAxisAlignment.center,
           children: [
             Flexible(
-              key: const ValueKey('field'),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: style.minFieldWidth!,
-                  maxWidth: style.maxFieldWidth!,
-                ),
-                child: FocusTraversalOrder(
-                  order: const NumericFocusOrder(0),
-                  child: _buildField(style, hasOverlay),
-                ),
+              // A flex of 0 lays the row out at its own height in a column.
+              flex: stacked ? 0 : 1,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    key: const ValueKey('field'),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: minField,
+                        maxWidth: style.maxFieldWidth!,
+                      ),
+                      child: FocusTraversalOrder(
+                        order: const NumericFocusOrder(0),
+                        child: _buildField(style, hasOverlay, extent),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: _fieldGap),
+                  if (togglesInline) ...toggleButtons(inline: true),
+                  if (showCounterSlot)
+                    Padding(
+                      key: const ValueKey('counter'),
+                      padding: counterPadding,
+                      child: SizedBox(
+                        width: math.min(reservedText, counterMax),
+                        child: counter == null
+                            ? null
+                            : Semantics(
+                                container: true,
+                                liveRegion: true,
+                                label: widget.matchStatusLabel(
+                                  active ?? -1,
+                                  count,
+                                ),
+                                child: ExcludeSemantics(
+                                  child: Align(
+                                    heightFactor: 1,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        counter,
+                                        style: style.counterStyle,
+                                        maxLines: 1,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  if (options)
+                    _ordered(
+                      1,
+                      key: const ValueKey('options'),
+                      focusNode: _optionsFocus,
+                      glyph: FindBarGlyph.options,
+                      label: widget.optionsTooltip,
+                      toggled: optionsRow,
+                      style: style,
+                      onPressed: _toggleOptions,
+                    ),
+                ],
               ),
             ),
-            const SizedBox(width: _fieldGap),
-            if (showToggles && widget.showMatchCase)
-              _ordered(
-                1,
-                key: const ValueKey('matchCase'),
-                glyph: FindBarGlyph.matchCase,
-                label: widget.matchCaseTooltip,
-                toggled: session.caseSensitive,
-                style: style,
-                onPressed: () => session.search(
-                  session.query,
-                  caseSensitive: !session.caseSensitive,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _ordered(
+                  3,
+                  key: const ValueKey('previous'),
+                  glyph: FindBarGlyph.previous,
+                  label: widget.previousTooltip,
+                  style: style,
+                  onPressed: session.previous,
                 ),
-              ),
-            if (showToggles && widget.showMatchAccents)
-              _ordered(
-                2,
-                key: const ValueKey('matchAccents'),
-                glyph: FindBarGlyph.matchAccents,
-                label: widget.matchAccentsTooltip,
-                toggled: session.diacriticSensitive,
-                style: style,
-                onPressed: () => session.search(
-                  session.query,
-                  diacriticSensitive: !session.diacriticSensitive,
+                _ordered(
+                  4,
+                  key: const ValueKey('next'),
+                  glyph: FindBarGlyph.next,
+                  label: widget.nextTooltip,
+                  style: style,
+                  onPressed: session.next,
                 ),
-              ),
-            if (counter != null)
-              Padding(
-                key: const ValueKey('counter'),
-                padding: _counterPadding,
-                child: Semantics(
-                  container: true,
-                  liveRegion: true,
-                  label: widget.matchStatusLabel(active ?? -1, count),
-                  child: ExcludeSemantics(
-                    child: Text(
-                      counter,
-                      style: style.counterStyle,
-                      maxLines: 1,
-                    ),
+                _ordered(
+                  5,
+                  key: const ValueKey('close'),
+                  glyph: FindBarGlyph.close,
+                  label: widget.closeTooltip,
+                  style: style,
+                  onPressed: widget.onClose,
+                ),
+              ],
+            ),
+          ],
+        );
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            controls,
+            if (optionsRow)
+              // Escape on a toggle hides the row and leaves the rest of the
+              // bar open.
+              Actions(
+                actions: <Type, Action<Intent>>{
+                  _CloseOptionsIntent: _BarAction<_CloseOptionsIntent>(
+                    isEnabled: () => _toggleHasFocus,
+                    onInvoke: _dismissOptionsFromKeyboard,
+                  ),
+                },
+                child: Shortcuts(
+                  shortcuts: const <ShortcutActivator, Intent>{
+                    SingleActivator(LogicalKeyboardKey.escape):
+                        _CloseOptionsIntent(),
+                  },
+                  child: Row(
+                    key: const ValueKey('options row'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: toggleButtons(inline: false),
                   ),
                 ),
               ),
-            _ordered(
-              3,
-              key: const ValueKey('previous'),
-              glyph: FindBarGlyph.previous,
-              label: widget.previousTooltip,
-              style: style,
-              onPressed: session.previous,
-            ),
-            _ordered(
-              4,
-              key: const ValueKey('next'),
-              glyph: FindBarGlyph.next,
-              label: widget.nextTooltip,
-              style: style,
-              onPressed: session.next,
-            ),
-            _ordered(
-              5,
-              key: const ValueKey('close'),
-              glyph: FindBarGlyph.close,
-              label: widget.closeTooltip,
-              style: style,
-              onPressed: widget.onClose,
-            ),
           ],
         );
       },
@@ -476,12 +687,16 @@ class _FindBarState extends State<FindBar>
     required String label,
     required FindBarStyle style,
     required VoidCallback? onPressed,
+    Key? buttonKey,
+    FocusNode? focusNode,
     bool? toggled,
   }) {
     return FocusTraversalOrder(
       key: key,
       order: NumericFocusOrder(order),
       child: FindBarIconButton(
+        key: buttonKey,
+        focusNode: focusNode,
         glyph: glyph,
         label: label,
         style: style,
@@ -491,7 +706,7 @@ class _FindBarState extends State<FindBar>
     );
   }
 
-  Widget _buildField(FindBarStyle style, bool hasOverlay) {
+  Widget _buildField(FindBarStyle style, bool hasOverlay, double hitHeight) {
     final base = style.textStyle!;
     final textStyle = base.copyWith(color: base.color ?? style.foregroundColor);
     final accent = style.accentColor!;
@@ -586,10 +801,73 @@ class _FindBarState extends State<FindBar>
       onTap: () => _editableKey.currentState?.requestKeyboard(),
       child: _gestures.buildGestureDetector(
         behavior: HitTestBehavior.translucent,
-        child: field,
+        // The field takes taps across the height of a button's hit area,
+        // with the line of text centered in it.
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: hitHeight),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            heightFactor: 1,
+            child: field,
+          ),
+        ),
       ),
     );
   }
+}
+
+/// Holds the way back into the query field of the bar a scope shows.
+///
+/// A [FindBar] below a [FindBarFocusScope] registers itself here, whether
+/// the scope built it or its `barBuilder` returned it. The scope calls
+/// [focusQuery] when the find shortcut is pressed while the bar is open,
+/// the same as a browser does with its own find bar.
+final class FindBarFocusRequests {
+  /// The registered bars, oldest first. The last one is the one in use.
+  final List<_FindBarState> _bars = [];
+
+  void _register(_FindBarState bar) {
+    _bars
+      ..remove(bar)
+      ..add(bar);
+  }
+
+  void _unregister(_FindBarState bar) => _bars.remove(bar);
+
+  /// Moves focus into the query field of the last bar still registered and
+  /// selects the query. Does nothing when no bar is registered.
+  void focusQuery() {
+    if (_bars.isNotEmpty) _bars.last._focusQuery();
+  }
+
+  /// Hides the matching options of the last bar still registered when one
+  /// of them has focus, and reports whether it did.
+  ///
+  /// The scope asks before Escape closes find. Escape on an option closes
+  /// only the options.
+  bool dismissOptions() =>
+      _bars.isNotEmpty && _bars.last._dismissOptionsFromKeyboard();
+}
+
+/// Hands a [FindBarFocusRequests] to the [FindBar] below it.
+class FindBarFocusScope extends InheritedWidget {
+  /// Makes [requests] the place where bars in [child] register.
+  const FindBarFocusScope({
+    required this.requests,
+    required super.child,
+    super.key,
+  });
+
+  /// Where bars below this widget register.
+  final FindBarFocusRequests requests;
+
+  /// The requests of the nearest enclosing scope, or null.
+  static FindBarFocusRequests? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<FindBarFocusScope>()?.requests;
+
+  @override
+  bool updateShouldNotify(FindBarFocusScope oldWidget) =>
+      !identical(requests, oldWidget.requests);
 }
 
 class _NextMatchIntent extends Intent {
@@ -602,6 +880,10 @@ class _PreviousMatchIntent extends Intent {
 
 class _CloseFindIntent extends Intent {
   const _CloseFindIntent();
+}
+
+class _CloseOptionsIntent extends Intent {
+  const _CloseOptionsIntent();
 }
 
 /// An action that can switch itself off. A disabled one leaves the key

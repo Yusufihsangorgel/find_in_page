@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -42,10 +44,10 @@ typedef FindableListItemBuilder =
 /// `Scrollable.ensureVisible`. [FindableListView] instead animates
 /// [scrollController] to the matched item's offset, then hands the item's
 /// matches to [itemBuilder] once it is built so it can render the
-/// highlight itself. The offset is the sum of the extents of the items
-/// before it, which is why every item's extent has to be known without
-/// building it. Pass [itemExtent] when all items are the same size, or
-/// [itemExtentBuilder] when they are not.
+/// highlight itself. The offset is the list's leading padding plus the sum
+/// of the extents of the items before it, which is why every item's extent
+/// has to be known without building it. Pass [itemExtent] when all items are
+/// the same size, or [itemExtentBuilder] when they are not.
 ///
 /// ```dart
 /// FindableListView(
@@ -102,16 +104,18 @@ final class FindableListView extends StatefulWidget {
 
   /// The fixed extent of every item along [scrollDirection].
   ///
-  /// A match in item `i` is revealed at `i * itemExtent`. Leave this null
-  /// and pass [itemExtentBuilder] when items differ in size.
+  /// A match in item `i` is revealed at `i * itemExtent` past the list's
+  /// leading padding. Leave this null and pass [itemExtentBuilder] when
+  /// items differ in size.
   final double? itemExtent;
 
   /// The extent of each item along [scrollDirection], by index.
   ///
   /// Passed to `ListView.builder` unchanged, and summed over the items
-  /// before a match to find the offset that reveals it. It is called with
-  /// the list's current layout dimensions, both by the list and by the
-  /// reveal. Leave this null when [itemExtent] is given.
+  /// before a match to find the offset that reveals it. The reveal passes
+  /// the same layout dimensions the list passes at the current scroll
+  /// position, with the list's padding taken into account. Leave this null
+  /// when [itemExtent] is given.
   final ItemExtentBuilder? itemExtentBuilder;
 
   /// Animated to reveal matches. When null, `FindableListView` creates and
@@ -241,18 +245,26 @@ class _FindableListViewState extends State<FindableListView> {
     }
   }
 
-  /// Where item [index] starts, measured from where item 0 starts.
+  /// The scroll offset at which item [index] starts.
   double _offsetOfIndex(int index, ScrollPosition position) {
+    final padding = _resolvedPadding();
+    final leading = switch (position.axisDirection) {
+      AxisDirection.down => padding.top,
+      AxisDirection.up => padding.bottom,
+      AxisDirection.right => padding.left,
+      AxisDirection.left => padding.right,
+    };
     final fixed = widget.itemExtent;
-    if (fixed != null) return index * fixed;
+    if (fixed != null) return leading + index * fixed;
     final extentOf = widget.itemExtentBuilder!;
+    // The values the list's own sliver gets from the padding around it.
     final dimensions = SliverLayoutDimensions(
-      scrollOffset: position.pixels < 0 ? 0 : position.pixels,
-      precedingScrollExtent: 0,
+      scrollOffset: math.max(0, position.pixels - leading),
+      precedingScrollExtent: leading,
       viewportMainAxisExtent: position.viewportDimension,
-      crossAxisExtent: _crossAxisExtent(),
+      crossAxisExtent: _crossAxisExtent(padding),
     );
-    var offset = 0.0;
+    var offset = leading;
     for (var i = 0; i < index; i++) {
       // Null marks the end of the list for ListView as well.
       final extent = extentOf(i, dimensions);
@@ -262,30 +274,78 @@ class _FindableListViewState extends State<FindableListView> {
     return offset;
   }
 
-  /// The cross-axis extent the list's items are laid out in.
-  double _crossAxisExtent() {
-    final box = context.findRenderObject() as RenderBox?;
-    if (box == null || !box.hasSize) return 0;
-    final padding =
-        widget.padding?.resolve(Directionality.maybeOf(context)) ??
-        EdgeInsets.zero;
+  /// The padding `ListView` puts around the items.
+  ///
+  /// Without [FindableListView.padding] the list pads only its main axis,
+  /// with the ambient `MediaQuery` padding.
+  EdgeInsets _resolvedPadding() {
+    final padding = widget.padding;
+    if (padding != null) {
+      return padding.resolve(Directionality.maybeOf(context));
+    }
+    final media = MediaQuery.maybePaddingOf(context);
+    if (media == null) return EdgeInsets.zero;
     return switch (widget.scrollDirection) {
-      Axis.vertical => box.size.width - padding.horizontal,
-      Axis.horizontal => box.size.height - padding.vertical,
+      Axis.vertical => EdgeInsets.only(top: media.top, bottom: media.bottom),
+      Axis.horizontal => EdgeInsets.only(left: media.left, right: media.right),
     };
   }
 
-  void _revealIndex(int index) {
-    final scrollController = _scrollController;
-    if (!scrollController.hasClients) return;
-    final position = scrollController.position;
-    final target =
-        _offsetOfIndex(index, position) - position.viewportDimension * 0.3;
-    scrollController.animateTo(
-      target.clamp(0.0, position.maxScrollExtent),
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
-    );
+  /// The cross-axis extent the list's items are laid out in.
+  double _crossAxisExtent(EdgeInsets padding) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return 0;
+    return math.max(0, switch (widget.scrollDirection) {
+      Axis.vertical => box.size.width - padding.horizontal,
+      Axis.horizontal => box.size.height - padding.vertical,
+    });
+  }
+
+  /// How many times a reveal aims at its item before it gives up.
+  static const int _revealAttempts = 4;
+
+  /// Counts reveals. A reveal stops aiming once a newer one has started.
+  int _revealGeneration = 0;
+
+  Future<void> _revealIndex(int index) async {
+    final generation = ++_revealGeneration;
+    // With itemExtentBuilder the list estimates maxScrollExtent from the
+    // items it has built, and a target past that estimate is clamped short.
+    // Each animation builds items nearer the target and corrects the
+    // estimate. The reveal aims again until it reaches the target.
+    for (var attempt = 0; attempt < _revealAttempts; attempt++) {
+      if (!mounted || generation != _revealGeneration) return;
+      final scrollController = _scrollController;
+      if (!scrollController.hasClients) return;
+      final position = scrollController.position;
+      final wanted =
+          _offsetOfIndex(index, position) - position.viewportDimension * 0.3;
+      final target = wanted.clamp(0.0, position.maxScrollExtent);
+      if ((position.pixels - target).abs() < 0.5) return;
+      await scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+      );
+      if (!mounted || !scrollController.hasClients) return;
+      // Only the estimated end may stop an aim short of its target, and
+      // only when the match lies past that end. Anywhere else, something
+      // else took the scroll, such as a finger, a wheel, the app or a newer
+      // reveal.
+      final after = scrollController.position;
+      final stoppedAtEstimate =
+          (after.pixels - after.maxScrollExtent).abs() < 0.5 &&
+          wanted > after.maxScrollExtent + 0.5;
+      if ((after.pixels - target).abs() >= 0.5 && !stoppedAtEstimate) return;
+      final settled = after.pixels;
+      // The items the animation reached update the estimate in the layout
+      // of this frame. The next attempt starts after it, before any input
+      // of the next frame.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || !scrollController.hasClients) return;
+      // The app moved the list in this frame, after the animation ended.
+      if ((scrollController.position.pixels - settled).abs() >= 0.5) return;
+    }
   }
 
   @override

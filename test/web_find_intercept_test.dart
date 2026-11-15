@@ -1,5 +1,4 @@
 import 'package:find_in_page/find_in_page.dart';
-import 'package:find_in_page/src/web_find_intercept.dart';
 import 'package:flutter/foundation.dart';
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
@@ -16,10 +15,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// there is no scope. Whether a given browser then suppresses its own
 /// find bar is not something `flutter test` can observe.
 ///
-/// They also pin that this isolate is not a browser. The capture listener
-/// lives behind a conditional import; on the VM it is a no-op, so a
-/// desktop or mobile build does not grow a DOM dependency or start
-/// swallowing keys it did not swallow before.
+/// The checks that only hold off the web are in
+/// web_find_intercept_vm_test.dart.
 void main() {
   Widget app(Widget child) => MaterialApp(home: child);
 
@@ -30,16 +27,6 @@ void main() {
         return LogicalKeyboardKey.metaLeft;
       default:
         return LogicalKeyboardKey.controlLeft;
-    }
-  }
-
-  LogicalKeyboardKey otherModifier() {
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.macOS:
-      case TargetPlatform.iOS:
-        return LogicalKeyboardKey.controlLeft;
-      default:
-        return LogicalKeyboardKey.metaLeft;
     }
   }
 
@@ -119,46 +106,4 @@ void main() {
     expect(await sendChord(tester, modifier: findModifier()), isFalse);
     expect(find.byType(FindBar), findsNothing);
   }, variant: platforms);
-
-  testWidgets('the other platform modifier is not find, off web', (
-    tester,
-  ) async {
-    await tester.pumpWidget(app(const FindInPageScope(child: SizedBox())));
-
-    expect(
-      await sendChord(tester, modifier: otherModifier()),
-      isFalse,
-      reason: 'only web treats Control and Meta as equivalent',
-    );
-    expect(find.byType(FindBar), findsNothing);
-  }, variant: platforms);
-
-  test('the capture listener is not attached on the VM', () {
-    expect(kIsWeb, isFalse, reason: 'flutter test is not a browser');
-    expect(webFindInterceptIsAttached, isFalse);
-
-    var invoked = false;
-    bool shouldIntercept() {
-      invoked = true;
-      return true;
-    }
-
-    installWebFindIntercept(shouldIntercept);
-    expect(webFindInterceptIsAttached, isFalse);
-    expect(invoked, isFalse, reason: 'the stub never reads the callback');
-
-    uninstallWebFindIntercept(shouldIntercept);
-    expect(webFindInterceptIsAttached, isFalse);
-  });
-
-  testWidgets('mounting a scope does not attach a DOM listener on the VM', (
-    tester,
-  ) async {
-    expect(kIsWeb, isFalse);
-    await tester.pumpWidget(app(const FindInPageScope(child: SizedBox())));
-    expect(webFindInterceptIsAttached, isFalse);
-
-    await tester.pumpWidget(app(const SizedBox()));
-    expect(webFindInterceptIsAttached, isFalse);
-  });
 }

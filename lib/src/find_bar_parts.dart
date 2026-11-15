@@ -22,6 +22,9 @@ enum FindBarGlyph {
 
   /// An accented letter, for the match accents toggle.
   matchAccents,
+
+  /// The letters "Aa", for the button that shows and hides the toggles.
+  options,
 }
 
 /// Paints one [FindBarGlyph] centered in the canvas.
@@ -77,6 +80,7 @@ class FindBarGlyphPainter extends CustomPainter {
           ..drawLine(at(0.27, 0.27), at(0.73, 0.73), stroke)
           ..drawLine(at(0.73, 0.27), at(0.27, 0.73), stroke);
       case FindBarGlyph.matchCase:
+      case FindBarGlyph.options:
         _paintLetters(canvas, size, 'Aa', side * 0.68);
       case FindBarGlyph.matchAccents:
         _paintLetters(canvas, size, 'á', side * 0.86);
@@ -124,6 +128,11 @@ class FindBarGlyphPainter extends CustomPainter {
 /// It is focusable and activates with the keyboard's activate keys, shows
 /// hover, press and focus states, carries a tooltip, and is announced as a
 /// button with [label]. Passing [toggled] makes it a toggle button.
+///
+/// A switched on toggle is filled with the accent color, and its glyph takes
+/// whichever of the background and foreground colors reads better on that
+/// fill. The focus ring sits outside the fill with a gap of background
+/// between them, which keeps it visible on a switched on toggle.
 class FindBarIconButton extends StatefulWidget {
   /// Creates a button that draws [glyph] and calls [onPressed].
   const FindBarIconButton({
@@ -132,6 +141,7 @@ class FindBarIconButton extends StatefulWidget {
     required this.onPressed,
     required this.style,
     this.toggled,
+    this.focusNode,
     super.key,
   });
 
@@ -150,6 +160,32 @@ class FindBarIconButton extends StatefulWidget {
 
   /// Whether a toggle button is switched on. Null for a plain button.
   final bool? toggled;
+
+  /// The node that holds the button's keyboard focus. When null, the button
+  /// keeps one of its own.
+  final FocusNode? focusNode;
+
+  /// The touch target size [defaultTargetPlatform] asks for, or 0 on a
+  /// desktop platform.
+  ///
+  /// Android and Fuchsia ask for 48 by 48 and iOS for 44 by 44. The choice
+  /// follows the platform alone, the same as Flutter's Material tap target
+  /// default. A browser on a phone reports the phone's platform and gets its
+  /// touch size, and a desktop browser gets none.
+  static double get touchTargetSize => switch (defaultTargetPlatform) {
+    TargetPlatform.android || TargetPlatform.fuchsia => 48,
+    TargetPlatform.iOS => 44,
+    TargetPlatform.linux || TargetPlatform.macOS || TargetPlatform.windows => 0,
+  };
+
+  /// The width and height a button takes in the bar, painted area and hit
+  /// area together.
+  ///
+  /// On a touch platform the button keeps its painted [style] size and the
+  /// space around it up to [touchTargetSize] takes taps too. Desktop
+  /// platforms keep the compact [FindBarStyle.buttonSize].
+  static double extentOf(FindBarStyle style) =>
+      math.max(style.buttonSize!, touchTargetSize);
 
   @override
   State<FindBarIconButton> createState() => _FindBarIconButtonState();
@@ -178,10 +214,12 @@ class _FindBarIconButtonState extends State<FindBarIconButton> {
   Widget build(BuildContext context) {
     final style = widget.style;
     final accent = style.accentColor!;
+    final foreground = style.foregroundColor!;
     final on = widget.toggled ?? false;
 
-    var fill = const Color(0x00000000);
-    if (on) fill = accent.withValues(alpha: 0.18);
+    // A light tint of the accent did not set a switched on toggle apart from
+    // a switched off one. A solid fill does, in both default themes.
+    var fill = on ? accent : const Color(0x00000000);
     if (_enabled && (_pressed || _hovered)) {
       fill = Color.alphaBlend(
         _pressed ? style.pressedColor! : style.hoverColor!,
@@ -189,28 +227,47 @@ class _FindBarIconButtonState extends State<FindBarIconButton> {
       );
     }
     final glyphColor = !_enabled
-        ? style.foregroundColor!.withValues(alpha: 0.38)
+        ? foreground.withValues(alpha: 0.38)
         : on
-        ? accent
-        : style.foregroundColor!;
+        ? moreLegibleOn(accent, style.backgroundColor!, foreground)
+        : foreground;
 
     Widget result = SizedBox.square(
       dimension: style.buttonSize,
       child: DecoratedBox(
+        position: DecorationPosition.foreground,
         decoration: BoxDecoration(
-          color: fill,
           borderRadius: const BorderRadius.all(Radius.circular(6)),
           border: _focused ? Border.all(color: accent, width: 2) : null,
         ),
-        child: Center(
-          child: CustomPaint(
-            size: Size.square(style.iconSize!),
-            painter: FindBarGlyphPainter(
-              glyph: widget.glyph,
-              color: glyphColor,
-              fontFamily: style.textStyle?.fontFamily,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              // The ring and the fill would merge on a switched on toggle.
+              // While the ring shows, the fill is inset to leave a gap of
+              // background between them.
+              child: Padding(
+                padding: EdgeInsets.all(_focused ? 4 : 0),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: fill,
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(_focused ? 2 : 6),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
+            CustomPaint(
+              size: Size.square(style.iconSize!),
+              painter: FindBarGlyphPainter(
+                glyph: widget.glyph,
+                color: glyphColor,
+                fontFamily: style.textStyle?.fontFamily,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -238,6 +295,16 @@ class _FindBarIconButtonState extends State<FindBarIconButton> {
       );
     }
 
+    // On touch platforms the square around the painted button takes taps
+    // too. It sits inside the gesture detector and counts as the button.
+    final extent = FindBarIconButton.extentOf(style);
+    if (extent > style.buttonSize!) {
+      result = SizedBox.square(
+        dimension: extent,
+        child: Center(child: result),
+      );
+    }
+
     result = GestureDetector(
       behavior: HitTestBehavior.opaque,
       excludeFromSemantics: true,
@@ -256,6 +323,7 @@ class _FindBarIconButtonState extends State<FindBarIconButton> {
       label: widget.label,
       onTap: _enabled ? _activate : null,
       child: FocusableActionDetector(
+        focusNode: widget.focusNode,
         enabled: _enabled,
         actions: <Type, Action<Intent>>{
           ActivateIntent: CallbackAction<ActivateIntent>(

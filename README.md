@@ -86,7 +86,12 @@ clearer to use than a find bar.
 That is the whole integration. Ctrl+F (Cmd+F on macOS) opens the bar, typing
 highlights every match, Enter and the arrow buttons move between them and
 scroll each into view, Shift+Enter goes back, and Escape closes and clears.
-Two toggles beside the field switch on case and accent matching.
+Two toggles switch on case and accent matching. They sit beside the field
+when it has room. On a phone the bar is one row, one touch target tall, like
+a mobile browser's find bar. Where the toggles do not fit in that row, a
+search options button shows them in a second row and hides them again. A
+bar too narrow for even one row moves previous, next and close to a second
+row of the same height.
 
 ## Text you never wrapped
 
@@ -244,17 +249,17 @@ import.
 
 To keep the scope's shortcut, placement and Escape handling but draw a
 different bar, pass `barBuilder`. It gets the scope's controller as a
-`FindSession` and a callback that closes find.
+`FindSession`. Calling `close` on the session closes find.
 
 ```dart
 FindInPageScope(
-  barBuilder: (context, session, onClose) => MyFindBar(
+  barBuilder: (context, session) => MyFindBar(
     query: session.query,
     status: '${(session.activeMatchIndex ?? -1) + 1}/${session.matchCount}',
     onChanged: session.search,
     onNext: session.next,
     onPrevious: session.previous,
-    onClose: onClose,
+    onClose: session.close,
   ),
   child: page,
 )
@@ -262,8 +267,9 @@ FindInPageScope(
 
 Here `MyFindBar` stands for any widget of yours. Rebuild it when the session
 notifies, for example with a `ListenableBuilder`, and request focus for its
-field when it first builds. The `example/` app has one made of Material
-widgets.
+field when it first builds. Focus stays in that field, which means a screen
+reader only hears the match count from a live region. The `example/` app has
+one made of Material widgets, with its counter in a live region.
 
 ## Custom UI
 

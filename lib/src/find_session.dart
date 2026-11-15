@@ -10,6 +10,11 @@ import 'package:flutter/widgets.dart';
 ///
 /// The `FindInPageController` class implements it. Listeners are notified
 /// whenever any value read here changes.
+///
+/// New members may be added to this interface in a minor release. A bar
+/// that only reads and calls a session is not affected. A class outside
+/// this package that implements it may have to add those members when it
+/// upgrades.
 abstract interface class FindSession implements Listenable {
   /// The current search query. Empty when no search is active.
   String get query;
@@ -52,11 +57,7 @@ abstract interface class FindSession implements Listenable {
 
 /// Builds the find bar that `FindInPageScope` shows when find opens.
 ///
-/// The [session] is the scope's controller. Calling [onClose] closes find
-/// the same as the built-in bar's close button does.
+/// The [session] is the scope's controller. Calling [FindSession.close] on
+/// it closes find the same as the built-in bar's close button does.
 typedef FindBarBuilder =
-    Widget Function(
-      BuildContext context,
-      FindSession session,
-      VoidCallback onClose,
-    );
+    Widget Function(BuildContext context, FindSession session);

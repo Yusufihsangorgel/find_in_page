@@ -93,14 +93,13 @@ class _ExampleHomeState extends State<_ExampleHome> {
       // other mode's matches.
       key: ValueKey(_mode),
       controller: _controller,
-      // The first two modes keep the default bar on screen in the app bar.
-      // The callback still has to exist so the web intercept takes Ctrl+F
+      // The first two modes keep the default bar on screen at the top of the
+      // body. The callback still has to exist so the web intercept takes Ctrl+F
       // instead of leaving it to the browser's empty find-on-canvas. The
       // third mode lets the scope show its bar, built by barBuilder.
       showBar: customBar,
       onOpenRequested: customBar ? null : () {},
-      barBuilder: (context, session, onClose) =>
-          _MaterialFindBar(session: session, onClose: onClose),
+      barBuilder: (context, session) => _MaterialFindBar(session: session),
       child: Scaffold(
         appBar: AppBar(
           title: Text(switch (_mode) {
@@ -118,26 +117,33 @@ class _ExampleHomeState extends State<_ExampleHome> {
                 ),
               ),
           ],
-          bottom: customBar
-              ? null
-              : PreferredSize(
-                  preferredSize: const Size.fromHeight(64),
-                  child: ExcludeFromFind(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                      child: Align(
-                        alignment: AlignmentDirectional.centerEnd,
-                        child: FindBar(
-                          controller: _controller,
-                          autofocus: false,
-                          onClose: _controller.clearSearch,
-                        ),
-                      ),
+        ),
+        body: Column(
+          children: [
+            // In the body, not under the app bar. The bar grows a second row
+            // for its search options, or when it is too narrow for one, and
+            // the body has room for it where a fixed app bar height does not.
+            if (!customBar)
+              ExcludeFromFind(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FindBar(
+                      controller: _controller,
+                      autofocus: false,
+                      onClose: _controller.clearSearch,
                     ),
                   ),
                 ),
+              ),
+            Expanded(
+              child: _mode == 1
+                  ? const _LazyListDemo()
+                  : const _UnwrappedPage(),
+            ),
+          ],
         ),
-        body: _mode == 1 ? const _LazyListDemo() : const _UnwrappedPage(),
         bottomNavigationBar: ExcludeFromFind(
           child: NavigationBar(
             selectedIndex: _mode,
@@ -165,12 +171,11 @@ class _ExampleHomeState extends State<_ExampleHome> {
 
 /// A find bar made of Material widgets, which the scope shows through
 /// `barBuilder`. A bar in any design system follows the same pattern. It
-/// reads the session, calls its methods, and calls onClose to close.
+/// reads the session and calls its methods, close among them.
 class _MaterialFindBar extends StatefulWidget {
-  const _MaterialFindBar({required this.session, required this.onClose});
+  const _MaterialFindBar({required this.session});
 
   final FindSession session;
-  final VoidCallback onClose;
 
   @override
   State<_MaterialFindBar> createState() => _MaterialFindBarState();
@@ -218,6 +223,7 @@ class _MaterialFindBarState extends State<_MaterialFindBar> {
             listenable: session,
             builder: (context, _) {
               final active = session.activeMatchIndex;
+              final count = session.matchCount;
               return Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -241,11 +247,21 @@ class _MaterialFindBarState extends State<_MaterialFindBar> {
                     ),
                   ),
                   if (session.query.isNotEmpty)
-                    Text(
-                      active == null
-                          ? '0/0'
-                          : '${active + 1}/${session.matchCount}',
-                      style: Theme.of(context).textTheme.bodySmall,
+                    // Focus stays in the field and never reaches the count.
+                    // A live region announces the sentence whenever it
+                    // changes, and the terse 1/3 stays visual.
+                    Semantics(
+                      container: true,
+                      liveRegion: true,
+                      label: count == 0
+                          ? 'No matches'
+                          : 'Match ${(active ?? -1) + 1} of $count',
+                      child: ExcludeSemantics(
+                        child: Text(
+                          count == 0 ? '0/0' : '${(active ?? -1) + 1}/$count',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
                     ),
                   IconButton(
                     tooltip: 'Match case',
@@ -269,7 +285,7 @@ class _MaterialFindBarState extends State<_MaterialFindBar> {
                   IconButton(
                     tooltip: 'Close',
                     icon: const Icon(Icons.close),
-                    onPressed: widget.onClose,
+                    onPressed: session.close,
                   ),
                 ],
               );

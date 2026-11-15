@@ -46,8 +46,19 @@ final class FindBarStyle with Diagnosticable {
   /// from the resolved [foregroundColor], [backgroundColor] and [hintColor].
   /// A style that changes only those three colors keeps everything else
   /// readable against them.
+  ///
+  /// The narrowest query field is 80 pixels on Android, Fuchsia and iOS,
+  /// where a phone has little width to spare, and 96 on desktop platforms.
   factory FindBarStyle.fallback(Brightness brightness) {
     final dark = brightness == Brightness.dark;
+    final touch = switch (defaultTargetPlatform) {
+      TargetPlatform.android ||
+      TargetPlatform.fuchsia ||
+      TargetPlatform.iOS => true,
+      TargetPlatform.linux ||
+      TargetPlatform.macOS ||
+      TargetPlatform.windows => false,
+    };
     return FindBarStyle(
       backgroundColor: dark ? const Color(0xFF2B3036) : const Color(0xFFFFFFFF),
       foregroundColor: dark ? const Color(0xFFE6EDF3) : const Color(0xFF1F2328),
@@ -89,7 +100,7 @@ final class FindBarStyle with Diagnosticable {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       buttonSize: 32,
       iconSize: 18,
-      minFieldWidth: 96,
+      minFieldWidth: touch ? 80 : 96,
       maxFieldWidth: 180,
     );
   }
@@ -103,8 +114,8 @@ final class FindBarStyle with Diagnosticable {
   /// Color of the placeholder text.
   final Color? hintColor;
 
-  /// Color of the cursor, the text selection, the focus ring and a switched
-  /// on toggle.
+  /// Color of the cursor, the text selection, the focus ring and the fill of
+  /// a switched on toggle.
   final Color? accentColor;
 
   /// Fill behind a button under a mouse pointer. Defaults to a light tint of
@@ -147,13 +158,24 @@ final class FindBarStyle with Diagnosticable {
   /// Space between the bar's edge and its contents.
   final EdgeInsetsGeometry? padding;
 
-  /// Width and height of each button.
+  /// Width and height of each button as painted.
+  ///
+  /// On Android and Fuchsia a button also takes taps in the space around it
+  /// up to 48 by 48, and on iOS up to 44 by 44, the touch target size those
+  /// platforms ask for. The platform decides this in a browser too. Desktop
+  /// platforms use this size for the hit area.
   final double? buttonSize;
 
   /// Size of the icon drawn inside each button.
   final double? iconSize;
 
-  /// Narrowest the query field gets before the toggles are hidden.
+  /// Narrowest the query field gets before the toggles leave its row.
+  ///
+  /// When the toggles leave, a touch platform shows a search options button
+  /// in their place. When a field this wide still does not fit beside the
+  /// counter and the buttons, previous, next and close move to a second row
+  /// below the field. The counter beside the field is scaled down when it
+  /// would push the field below this width.
   final double? minFieldWidth;
 
   /// Widest the query field grows.
@@ -390,20 +412,13 @@ final class FindBarTheme extends InheritedTheme {
       counterStyle: _withColor(merged.counterStyle, merged.hintColor!),
       tooltipTextStyle: _withColor(
         merged.tooltipTextStyle,
-        _moreLegible(merged.tooltipColor ?? foreground, background, foreground),
+        moreLegibleOn(
+          merged.tooltipColor ?? foreground,
+          background,
+          foreground,
+        ),
       ),
     );
-  }
-
-  /// Whichever of [a] and [b] has the higher contrast against [surface].
-  static Color _moreLegible(Color surface, Color a, Color b) {
-    double contrast(Color color) {
-      final x = color.computeLuminance() + 0.05;
-      final y = surface.computeLuminance() + 0.05;
-      return x > y ? x / y : y / x;
-    }
-
-    return contrast(a) >= contrast(b) ? a : b;
   }
 
   static TextStyle _withColor(TextStyle? style, Color color) {
@@ -417,4 +432,15 @@ final class FindBarTheme extends InheritedTheme {
 
   @override
   bool updateShouldNotify(FindBarTheme oldWidget) => style != oldWidget.style;
+}
+
+/// Whichever of [a] and [b] has the higher contrast against [surface].
+Color moreLegibleOn(Color surface, Color a, Color b) {
+  double contrast(Color color) {
+    final x = color.computeLuminance() + 0.05;
+    final y = surface.computeLuminance() + 0.05;
+    return x > y ? x / y : y / x;
+  }
+
+  return contrast(a) >= contrast(b) ? a : b;
 }

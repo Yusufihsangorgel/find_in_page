@@ -69,6 +69,119 @@ void main() {
       expect(fieldFocus.hasFocus, isFalse);
     });
 
+    for (final fromBuilder in [false, true]) {
+      final bar = fromBuilder ? 'a FindBar from barBuilder' : 'the bar';
+      testWidgets('the find shortcut while $bar is open moves focus back to '
+          'its field and selects the query', (tester) async {
+        final controller = FindInPageController();
+        addTearDown(controller.dispose);
+        final fieldFocus = FocusNode();
+        addTearDown(fieldFocus.dispose);
+
+        await tester.pumpWidget(
+          _app(
+            FindInPageScope(
+              controller: controller,
+              barBuilder: fromBuilder
+                  ? (context, session) =>
+                        FindBar(controller: session, onClose: session.close)
+                  : null,
+              child: Column(
+                children: [
+                  TextField(focusNode: fieldFocus),
+                  const FindableText('go go go'),
+                ],
+              ),
+            ),
+          ),
+        );
+        await _pressCtrlF(tester);
+        await tester.enterText(
+          find.descendant(
+            of: find.byType(FindBar),
+            matching: find.byType(EditableText),
+          ),
+          'go',
+        );
+        await tester.pump();
+
+        fieldFocus.requestFocus();
+        await tester.pump();
+        expect(
+          _barField(tester).focusNode.hasFocus,
+          isFalse,
+          reason: 'the setup moves focus out of the bar',
+        );
+
+        await _pressCtrlF(tester);
+        expect(find.byType(FindBar), findsOneWidget);
+        expect(_barField(tester).focusNode.hasFocus, isTrue);
+        expect(fieldFocus.hasFocus, isFalse);
+        expect(
+          _barField(tester).controller.selection,
+          const TextSelection(baseOffset: 0, extentOffset: 2),
+        );
+        expect(controller.query, 'go');
+        expect(controller.isOpen, isTrue);
+      });
+    }
+
+    testWidgets('with two FindBars from barBuilder and the second removed, the '
+        'find shortcut moves focus back to the first', (tester) async {
+      final controller = FindInPageController();
+      addTearDown(controller.dispose);
+      final fieldFocus = FocusNode();
+      addTearDown(fieldFocus.dispose);
+      final second = ValueNotifier(true);
+      addTearDown(second.dispose);
+
+      await tester.pumpWidget(
+        _app(
+          FindInPageScope(
+            controller: controller,
+            barBuilder: (context, session) => ValueListenableBuilder<bool>(
+              valueListenable: second,
+              builder: (context, showSecond, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FindBar(
+                    key: const ValueKey('first'),
+                    controller: session,
+                    onClose: session.close,
+                  ),
+                  if (showSecond)
+                    FindBar(
+                      key: const ValueKey('second'),
+                      controller: session,
+                      autofocus: false,
+                      onClose: session.close,
+                    ),
+                ],
+              ),
+            ),
+            child: Column(
+              children: [
+                TextField(focusNode: fieldFocus),
+                const FindableText('go go go'),
+              ],
+            ),
+          ),
+        ),
+      );
+      await _pressCtrlF(tester);
+      expect(find.byType(FindBar), findsNWidgets(2));
+      second.value = false;
+      await tester.pump();
+      expect(find.byType(FindBar), findsOneWidget);
+
+      fieldFocus.requestFocus();
+      await tester.pump();
+      expect(_barField(tester).focusNode.hasFocus, isFalse);
+      await _pressCtrlF(tester);
+      expect(_barField(tester).focusNode.hasFocus, isTrue);
+      expect(fieldFocus.hasFocus, isFalse);
+    });
+
     testWidgets('autofocus: false does not move focus', (tester) async {
       final controller = FindInPageController();
       addTearDown(controller.dispose);

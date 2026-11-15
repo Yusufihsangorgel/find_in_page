@@ -41,7 +41,9 @@ const Color _activeMatchFill = Color(0xB3FF9800);
 /// move focus. Opening the built-in bar does: its query field takes
 /// keyboard focus even if something else held it, and closing the bar
 /// (button, Escape, or [FindInPageController.close]) returns focus to
-/// whatever that was, if it can still take focus. The bar is rendered into
+/// whatever that was, if it can still take focus. Pressing the shortcut
+/// again while the bar is open moves focus back to its field and selects
+/// the query, as browsers do. The bar is rendered into
 /// the nearest [Overlay]. A `MaterialApp` or `CupertinoApp` provides one, and
 /// so does a `WidgetsApp` with a home page or routes. Drawn there, the bar is
 /// visible and tappable no matter how [child] is laid out.
@@ -120,20 +122,24 @@ final class FindInPageScope extends StatefulWidget {
   /// Builds the bar shown when find opens, in place of the default
   /// [FindBar].
   ///
-  /// The builder gets the scope's controller as a [FindSession] and a
-  /// callback that closes find. The result is placed at [barAlignment] in
-  /// the nearest [Overlay], inside the safe area, and removed again when
-  /// find closes. Escape closes it the same as it closes the default bar.
+  /// The builder gets the scope's controller as a [FindSession]. Calling
+  /// [FindSession.close] on it closes find. The result is placed at
+  /// [barAlignment] in the nearest [Overlay], inside the safe area, and
+  /// removed again when find closes. Escape closes it the same as it closes
+  /// the default bar.
   ///
-  /// The scope does not move focus into a custom bar. Request focus for its
-  /// query field when it first builds. Focus returns to where it was when
-  /// that field leaves the tree.
+  /// A [FindBar] returned here behaves like the default one. It takes focus
+  /// when it first builds, and the find shortcut pressed while it is open
+  /// moves focus back to its field. The scope does not move focus into a bar
+  /// of your own. Request focus for its query field when it first builds.
+  /// The shortcut pressed again while it is open leaves focus where it is.
+  /// Focus returns to where it was when that field leaves the tree.
   ///
   /// ```dart
   /// FindInPageScope(
-  ///   barBuilder: (context, session, onClose) => FindBar(
+  ///   barBuilder: (context, session) => FindBar(
   ///     controller: session,
-  ///     onClose: onClose,
+  ///     onClose: session.close,
   ///     showMatchAccents: false,
   ///   ),
   ///   child: page,
@@ -184,6 +190,7 @@ class _FindInPageScopeState extends State<FindInPageScope> {
   FindInPageController? _ownedController;
   final OverlayPortalController _portal = OverlayPortalController();
   final GlobalKey _subtreeKey = GlobalKey();
+  final FindBarFocusRequests _barFocus = FindBarFocusRequests();
   List<RenderedTextSource> _lastSweep = const [];
   bool _barVisible = false;
 
@@ -278,7 +285,8 @@ class _FindInPageScopeState extends State<FindInPageScope> {
     // Only consume Escape while the built-in bar is open, so dialogs and
     // other Escape handlers keep working otherwise.
     if (event.logicalKey == LogicalKeyboardKey.escape && _barVisible) {
-      _controller.close();
+      // Escape on one of the bar's search options closes only the options.
+      if (!_barFocus.dismissOptions()) _controller.close();
       return true;
     }
     return false;
@@ -297,7 +305,12 @@ class _FindInPageScopeState extends State<FindInPageScope> {
     if (!_barVisible) {
       setState(() => _barVisible = true);
       _portal.show();
+      return;
     }
+    // Opening find again while the bar shows brings focus back to its field
+    // with the query selected, as browsers do. A FindBar from barBuilder
+    // registers for this the same as the default one.
+    _barFocus.focusQuery();
   }
 
   /// What [FindInPageController.close] does beyond clearing the search and
@@ -317,18 +330,22 @@ class _FindInPageScopeState extends State<FindInPageScope> {
       controller: _controller,
       child: OverlayPortal(
         controller: _portal,
-        overlayChildBuilder: (context) => SafeArea(
-          child: Align(
-            alignment: widget.barAlignment,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child:
-                  widget.barBuilder?.call(
-                    context,
-                    _controller,
-                    _controller.close,
-                  ) ??
-                  FindBar(controller: _controller, onClose: _controller.close),
+        overlayChildBuilder: (context) => FindBarFocusScope(
+          requests: _barFocus,
+          child: SafeArea(
+            child: Align(
+              alignment: widget.barAlignment,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Builder(
+                  builder: (context) =>
+                      widget.barBuilder?.call(context, _controller) ??
+                      FindBar(
+                        controller: _controller,
+                        onClose: _controller.close,
+                      ),
+                ),
+              ),
             ),
           ),
         ),

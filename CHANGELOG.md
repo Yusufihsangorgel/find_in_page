@@ -34,31 +34,68 @@ in #5.
   `@internal`. They connect this package's own widgets. Using them from
   another package now draws an analyzer warning.
 - When the same query runs again because a source registered, unregistered or
-  changed its text, the active match stays on the same occurrence. It used to
-  keep the same index, which pointed at a different match once matches
+  changed its text, the active match is kept if the same source still has a
+  match at the same start offset. Otherwise the active index stays as it was,
+  or moves to the last match when it is past the end. It used to keep the
+  same index in every case, which pointed at a different match once matches
   before it appeared or went away.
 
 ### Added
 
 - A `FindSession` interface, implemented by `FindInPageController`. It holds
-  what a find bar reads and calls, and nothing else.
+  what a find bar reads and calls, and nothing else. New members may be added
+  to it in a minor release. A class outside this package that implements it
+  may have to add them when it upgrades.
 - A `barBuilder` argument on `FindInPageScope`. The scope shows what it
   returns where the built-in bar would go, removes it on close, and closes it
-  on Escape. The builder gets the session and a close callback, which is all
-  a bar from another design system needs.
+  on Escape. The builder gets the session, which is all a bar from another
+  design system needs.
 - A `selectMatch` method on the controller. It makes the match at an index
-  active in one step and scrolls to it, and that match stays active while the
-  same query runs again.
+  active in one step and scrolls to it. When the same query runs again, that
+  match stays active as long as its source still has a match at the same
+  start offset.
 - Two styling classes. A `FindBarStyle` holds colors, text styles, corner
   radius, border, shadows, padding and sizes. A `FindBarTheme` hands one to
   every bar below it, including the one a scope shows.
 - An `itemExtentBuilder` argument on `FindableListView`, next to
   `itemExtent`. Exactly one of the two is required. A match is revealed at the
-  sum of the extents of the rows before it.
+  sum of the extents of the rows before it. The list estimates its full
+  extent from the rows it has built, and when rows further down are taller
+  the reveal tries a few times to reach the match. It stops as soon as a
+  finger, a wheel, a drag or the app itself moves the list, a jump to the end
+  included.
 - Shift+Enter in the query field moves to the previous match.
+- Text an input method is still composing is searched as it changes, and a
+  commit that leaves the text unchanged does not search again. While a
+  composition is active, Enter and Shift+Enter go to the input method and do
+  not move between matches.
 - A `contextMenuBuilder` argument on `FindBar`. By default iOS shows its
   system menu where the platform supports it. Other platforms get a plain
   menu of the field's actions drawn in the bar's style.
+- On Android and Fuchsia each button of the bar takes taps across a 48 pixel
+  square around its painted size, and on iOS across a 44 pixel square, the
+  touch targets those platforms ask for. The query field takes taps across
+  the same height. The platform alone decides this, the same as Flutter's
+  Material tap target default. A phone browser gets the touch size of its
+  platform, and desktop platforms keep the compact size.
+- On a touch platform the bar is one row, one hit height tall, in the common
+  case. Where the toggles do not fit beside the field, a search options
+  button takes their place and shows them in a second row on demand. Escape
+  on a toggle hides that row again. The button's label comes from the new
+  `optionsTooltip` argument of `FindBar`. With Roboto the toggles fit beside the
+  field from about 411 pixels wide on Android and 393 on iOS. The narrowest
+  field is 80 pixels there and 96 on desktop platforms. Room for a counter
+  of three digits a side is set aside before the first letter is typed,
+  which keeps the row from changing when the counter appears.
+- A bar too narrow for the field, the counter and the previous, next and
+  close buttons in one row grows a second row, one hit height tall, and
+  moves those three buttons there. A large text scale can need that too. The
+  narrowest bar that fits is three button hit sizes plus its padding, 160
+  pixels with the default style on Android and Fuchsia, 148 on iOS and 112
+  on desktop platforms.
+- A switched on toggle is filled with the accent color, which sets it apart
+  from a switched off one by at least 3 to 1 in both default themes. The
+  focus ring keeps a gap from that fill.
 
 ### Fixed
 
@@ -68,6 +105,14 @@ in #5.
 - The query field turns off autocorrect and smart punctuation. Both could
   change what was typed, and a curly apostrophe never matches the straight
   one on the page.
+- Pressing the find shortcut while the scope's bar is open moves focus back
+  to its field and selects the query, as browsers do. This holds for a
+  `FindBar` returned from `barBuilder` too, and with several of them it is
+  the last one still showing that gets focus. It used to leave focus where it
+  was.
+- Revealing a match in a `FindableListView` takes the list's leading padding
+  into account, in every scroll direction. The row used to land that much
+  further along the list than the reveal aimed.
 
 ### Migration notes
 

@@ -24,5 +24,7 @@ jobs:
       - run: flutter analyze
       - run: flutter test --exclude-tags demo
       # Lowercasing can change a string's length on the web but not on the VM,
-      # and the text offset tests only fail in a browser.
-      - run: flutter test --platform chrome test/text_fold_test.dart test/controller_contract_test.dart test/fold_table_test.dart
+      # and the text offset tests only fail in a browser. The find bar tests
+      # run there too. Their size checks override the target platform, which
+      # picks the button hit size in a browser as well.
+      - run: flutter test --platform chrome test/text_fold_test.dart test/controller_contract_test.dart test/fold_table_test.dart test/find_bar_test.dart
