@@ -47,5 +47,13 @@ jobs:
       - run: flutter pub get
       # The older lint set enables rules the declared one dropped, so infos
       # do not fail here. The test job still enforces the declared set.
-      - run: flutter analyze --no-fatal-infos
-      - run: flutter test --exclude-tags demo
+      # Two test files are left out on the floor; they run in the job above.
+      # Both read Color.a/r/g/b, which Flutter has from 3.27.0, and
+      # selection_interaction_test.dart passes SelectableText.selectionColor,
+      # which it has from 3.32.0. The package code under lib is still checked.
+      - run: |
+          mapfile -t files < <(git ls-files '*.dart' | grep -v -e '^test/highlight_clip_test.dart$' -e '^test/selection_interaction_test.dart$')
+          flutter analyze --no-fatal-infos "${files[@]}"
+      - run: |
+          mapfile -t files < <(git ls-files 'test/*_test.dart' | grep -v -e '^test/highlight_clip_test.dart$' -e '^test/selection_interaction_test.dart$')
+          flutter test --exclude-tags demo "${files[@]}"
