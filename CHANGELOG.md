@@ -81,12 +81,16 @@ in #5.
 - On a touch platform the bar is one row, one hit height tall, in the common
   case. Where the toggles do not fit beside the field, a search options
   button takes their place and shows them in a second row on demand. Escape
-  on a toggle hides that row again. The button's label comes from the new
-  `optionsTooltip` argument of `FindBar`. With Roboto the toggles fit beside the
-  field from about 411 pixels wide on Android and 393 on iOS. The narrowest
-  field is 80 pixels there and 96 on desktop platforms. Room for a counter
-  of three digits a side is set aside before the first letter is typed,
-  which keeps the row from changing when the counter appears.
+  on a toggle hides that row again, and the caret's selection handles stay
+  hidden while it shows. The button is announced as expanded or collapsed,
+  and its label comes from the new `optionsTooltip` argument of `FindBar`.
+  With Roboto the toggles fit beside the field from about 411 pixels wide on
+  Android and 393 on iOS. The narrowest field is 80 pixels there and 96 on
+  desktop platforms. The row is laid out around a counter of three digits a
+  side, typed or not, which keeps it from changing when the counter appears.
+  A longer counter is scaled down to the room left, and the bar stays one
+  row while that room is at least three quarters of what a three digit
+  counter needs.
 - A bar too narrow for the field, the counter and the previous, next and
   close buttons in one row grows a second row, one hit height tall, and
   moves those three buttons there. A large text scale can need that too. The

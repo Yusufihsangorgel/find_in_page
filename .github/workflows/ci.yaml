@@ -28,3 +28,17 @@ jobs:
       # run there too. Their size checks override the target platform, which
       # picks the button hit size in a browser as well.
       - run: flutter test --platform chrome test/text_fold_test.dart test/controller_contract_test.dart test/fold_table_test.dart test/find_bar_test.dart
+
+  # The oldest Flutter that pubspec.yaml accepts. Code that leans on a newer
+  # API fails here before someone on the floor finds it.
+  floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.0
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test --exclude-tags demo

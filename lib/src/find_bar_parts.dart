@@ -127,7 +127,8 @@ class FindBarGlyphPainter extends CustomPainter {
 ///
 /// It is focusable and activates with the keyboard's activate keys, shows
 /// hover, press and focus states, carries a tooltip, and is announced as a
-/// button with [label]. Passing [toggled] makes it a toggle button.
+/// button with [label]. Passing [toggled] makes it a toggle button, and
+/// passing [expanded] a disclosure button.
 ///
 /// A switched on toggle is filled with the accent color, and its glyph takes
 /// whichever of the background and foreground colors reads better on that
@@ -141,9 +142,13 @@ class FindBarIconButton extends StatefulWidget {
     required this.onPressed,
     required this.style,
     this.toggled,
+    this.expanded,
     this.focusNode,
     super.key,
-  });
+  }) : assert(
+         toggled == null || expanded == null,
+         'A button is a toggle or a disclosure, not both.',
+       );
 
   /// The icon drawn in the button.
   final FindBarGlyph glyph;
@@ -160,6 +165,11 @@ class FindBarIconButton extends StatefulWidget {
 
   /// Whether a toggle button is switched on. Null for a plain button.
   final bool? toggled;
+
+  /// Whether the content a disclosure button shows and hides is showing.
+  /// Null for a plain button. It is announced as expanded or collapsed and
+  /// drawn like a switched on toggle while expanded.
+  final bool? expanded;
 
   /// The node that holds the button's keyboard focus. When null, the button
   /// keeps one of its own.
@@ -215,7 +225,7 @@ class _FindBarIconButtonState extends State<FindBarIconButton> {
     final style = widget.style;
     final accent = style.accentColor!;
     final foreground = style.foregroundColor!;
-    final on = widget.toggled ?? false;
+    final on = widget.toggled ?? widget.expanded ?? false;
 
     // A light tint of the accent did not set a switched on toggle apart from
     // a switched off one. A solid fill does, in both default themes.
@@ -320,6 +330,7 @@ class _FindBarIconButtonState extends State<FindBarIconButton> {
       button: true,
       enabled: _enabled,
       toggled: widget.toggled,
+      expanded: widget.expanded,
       label: widget.label,
       onTap: _enabled ? _activate : null,
       child: FocusableActionDetector(
@@ -369,11 +380,15 @@ class _FindBarIconButtonState extends State<FindBarIconButton> {
 /// `EditableText.contextMenuBuilder`.
 class FindFieldSelectionControls extends TextSelectionControls
     with TextSelectionHandleControls {
-  /// Creates handles painted in [color].
-  FindFieldSelectionControls(this.color);
+  /// Creates handles painted in [color], or none at all when [hidden].
+  FindFieldSelectionControls(this.color, {this.hidden = false});
 
   /// Fill of the handles.
   final Color color;
+
+  /// Whether the handles are left out. A handle that is only faded out
+  /// still takes taps, which a hidden one must not.
+  final bool hidden;
 
   static const double _size = 22;
 
@@ -387,6 +402,7 @@ class FindFieldSelectionControls extends TextSelectionControls
     double textLineHeight, [
     VoidCallback? onTap,
   ]) {
+    if (hidden) return const SizedBox.shrink();
     final handle = SizedBox.square(
       dimension: _size,
       child: CustomPaint(

@@ -1157,8 +1157,9 @@ void main() {
           tester.getSemantics(find.bySemanticsLabel('Search options')),
           isSemantics(
             isButton: true,
-            hasToggledState: true,
-            isToggled: false,
+            hasExpandedState: true,
+            isExpanded: false,
+            hasToggledState: false,
             hasTapAction: true,
           ),
         );
@@ -1187,7 +1188,11 @@ void main() {
         expect(_focusedLabel(), 'Search options');
         expect(
           tester.getSemantics(find.bySemanticsLabel('Search options')),
-          isSemantics(hasToggledState: true, isToggled: true),
+          isSemantics(
+            hasExpandedState: true,
+            isExpanded: true,
+            hasToggledState: false,
+          ),
         );
         final previous = tester.getRect(find.byTooltip('Previous match'));
         for (final label in ['Match case', 'Match accents']) {
@@ -1338,6 +1343,79 @@ void main() {
         );
         expect(FocusManager.instance.primaryFocus, same(focused));
         expect(_focusedLabel(), 'Match case');
+
+        // The row stays open once focus moves on, as if the options button
+        // had opened it.
+        await tester.pump();
+        await tester.showKeyboard(_queryField);
+        await tester.enterText(_queryField, 'q');
+        await tester.pump();
+        expect(find.byTooltip('Match case'), findsOneWidget);
+        expect(
+          tester.widget<FindBarIconButton>(_button('Search options')).expanded,
+          isTrue,
+        );
+      },
+    );
+
+    testWidgets(
+      'while the options row shows, the caret handle neither shows nor '
+      'takes taps meant for the toggles',
+      variant: TargetPlatformVariant.only(TargetPlatform.android),
+      (tester) async {
+        final controller = FindInPageController();
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(optionsHost(controller));
+        await tester.enterText(_queryField, 'go');
+        await tester.pump();
+        // A tap on the text shows the caret handle on a touch platform.
+        await tester.tapAt(tester.getRect(_queryField).center);
+        await tester.pump();
+        final field = tester.state<EditableTextState>(_queryField);
+        expect(field.selectionOverlay?.handlesAreVisible, isTrue);
+
+        await tester.tap(find.byTooltip('Search options'));
+        await tester.pump();
+        // A caret moved by touch to the end of the text, right above Match
+        // case, asks for the handle again.
+        for (final offset in [1, 2]) {
+          field.userUpdateTextEditingValue(
+            field.textEditingValue.copyWith(
+              selection: TextSelection.collapsed(offset: offset),
+            ),
+            SelectionChangedCause.tap,
+          );
+          await tester.pump();
+        }
+        await tester.pump();
+        expect(field.selectionOverlay?.handlesAreVisible ?? false, isFalse);
+        expect(field.selectionOverlay?.toolbarIsVisible ?? false, isFalse);
+        for (final label in ['Match case', 'Match accents']) {
+          final button = tester.renderObject(_button(label));
+          final area = tester.getRect(_button(label));
+          var missed = 0;
+          for (var y = area.top + 0.5; y < area.bottom; y++) {
+            for (var x = area.left + 0.5; x < area.right; x++) {
+              final result = HitTestResult();
+              tester.binding.hitTestInView(
+                result,
+                Offset(x, y),
+                tester.view.viewId,
+              );
+              if (!result.path.any((entry) => entry.target == button)) {
+                missed++;
+              }
+            }
+          }
+          expect(missed, 0, reason: '$label points that miss it');
+        }
+
+        await tester.tap(find.byTooltip('Search options'));
+        await tester.pump();
+        expect(find.byTooltip('Match case'), findsNothing);
+        await tester.tapAt(tester.getRect(_queryField).center);
+        await tester.pump();
+        expect(field.selectionOverlay?.handlesAreVisible, isTrue);
       },
     );
 
@@ -1856,6 +1934,70 @@ void main() {
         expect(controller.isOpen, isFalse);
       },
     );
+
+    testWidgets('with focus in a FindBar, Escape runs only what the bar does '
+        'with it, and outside the bar the scope closes find', (tester) async {
+      final controller = FindInPageController();
+      addTearDown(controller.dispose);
+      final page = FocusNode();
+      addTearDown(page.dispose);
+      final log = <String>[];
+      await tester.pumpWidget(
+        _widgetsApp(
+          FindInPageScope(
+            controller: controller,
+            // An onClose that keeps find open shows who acted on the key.
+            barBuilder: (context, session) =>
+                FindBar(controller: session, onClose: () => log.add('bar')),
+            child: Column(
+              children: [
+                Focus(focusNode: page, child: const SizedBox(width: 8)),
+                const Text('go go go'),
+              ],
+            ),
+          ),
+        ),
+      );
+      controller.open();
+      await tester.pump();
+      await tester.pump();
+      expect(tester.widget<EditableText>(_queryField).focusNode.hasFocus, true);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(log, ['bar']);
+      expect(controller.isOpen, isTrue, reason: 'the scope left the key');
+
+      page.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(log, ['bar']);
+      expect(controller.isOpen, isFalse);
+    });
+
+    testWidgets('Escape in a FindBar without onClose still closes find', (
+      tester,
+    ) async {
+      final controller = FindInPageController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _widgetsApp(
+          FindInPageScope(
+            controller: controller,
+            barBuilder: (context, session) => FindBar(controller: session),
+            child: const Text('go go go'),
+          ),
+        ),
+      );
+      controller.open();
+      await tester.pump();
+      await tester.pump();
+      expect(tester.widget<EditableText>(_queryField).focusNode.hasFocus, true);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(controller.isOpen, isFalse);
+    });
 
     testWidgets('a builder can return a restyled FindBar for the session', (
       tester,

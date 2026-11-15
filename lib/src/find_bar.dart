@@ -18,9 +18,11 @@ import 'find_session.dart';
 /// the platform brightness.
 ///
 /// Enter moves to the next match and Shift+Enter to the previous one, while
-/// the query field has focus. Escape anywhere in the bar calls [onClose].
-/// Tab moves through the field, the toggles, previous, next and close, in
-/// that order and in either text direction.
+/// the query field has focus. Escape anywhere in the bar calls [onClose],
+/// except on a toggle in the second row, where it hides that row. Tab goes
+/// from the field to the toggles or the search options button, then to
+/// previous, next and close, and last to toggles in a second row. The order
+/// is the same in either text direction.
 ///
 /// Text an input method is still composing is searched as it changes, and a
 /// commit that leaves the text unchanged does not search again. While a
@@ -32,10 +34,13 @@ import 'find_session.dart';
 /// that height. When the toggles do not fit beside the field there, a
 /// search options button takes their place. Activating it shows the toggles
 /// in a second row, and activating it again, or Escape on a toggle, hides
-/// them. Tab then goes from the field to the options button, previous, next
-/// and close, and on to the toggles. The width set aside for the counter
-/// fits three digits on each side of the slash, which keeps the row steady
-/// when the counter first appears.
+/// them. While that row shows, the caret's selection handles are hidden,
+/// since they would reach into it. The row is laid out around a counter of
+/// three digits on each side of the slash, which keeps it steady when the
+/// counter first appears and whatever the count. A counter that needs more
+/// room than the row leaves is scaled down to fit. The bar stays one row
+/// while it leaves at least three quarters of the width a three digit
+/// counter needs.
 ///
 /// A bar too narrow for the field, the counter and the previous, next and
 /// close buttons in one row grows a second row, one hit height tall, and
@@ -185,10 +190,16 @@ class _FindBarState extends State<FindBar>
   /// Whether the options button has the toggles row open.
   bool _optionsOpen = false;
 
-  /// Whether the last layout showed the toggles row.
-  bool _optionsRowShown = false;
+  /// Takes focus that is anywhere in the bar, which tells the scope that
+  /// Escape is the bar's to handle.
+  final FocusNode _barNode = FocusNode(
+    debugLabel: 'FindBar',
+    skipTraversal: true,
+    canRequestFocus: false,
+  );
   bool _showSelectionHandles = false;
   FindFieldSelectionControls? _handles;
+  FindFieldSelectionControls? _hiddenHandles;
   FindBarStyle? _resolvedStyle;
   FindBarFocusRequests? _focusRequests;
 
@@ -255,6 +266,7 @@ class _FindBarState extends State<FindBar>
     _matchCaseFocus.dispose();
     _matchAccentsFocus.dispose();
     _optionsFocus.dispose();
+    _barNode.dispose();
     super.dispose();
   }
 
@@ -290,20 +302,25 @@ class _FindBarState extends State<FindBar>
   bool get _toggleHasFocus =>
       _matchCaseFocus.hasFocus || _matchAccentsFocus.hasFocus;
 
-  void _toggleOptions() {
+  void _showOptions(bool show) {
     // A toggle about to be hidden hands focus to the button that hides it.
-    if (_optionsOpen && _toggleHasFocus) _optionsFocus.requestFocus();
-    setState(() => _optionsOpen = !_optionsOpen);
+    if (!show && _toggleHasFocus) _optionsFocus.requestFocus();
+    setState(() => _optionsOpen = show);
   }
 
-  /// Hides the toggles row when one of its toggles has focus, and moves
-  /// focus to the options button that showed it. Reports whether it did.
-  bool _dismissOptionsFromKeyboard() {
-    if (!_optionsRowShown || !_toggleHasFocus) return false;
-    setState(() => _optionsOpen = false);
-    _optionsFocus.requestFocus();
-    return true;
-  }
+  /// Whether the last layout showed the toggles row. A record for
+  /// [_ownsEscape], which nothing in build reads.
+  bool _optionsRowShown = false;
+
+  /// Whether Escape belongs to this bar. Focus is in it, and the bar closes
+  /// itself or hides the toggles row that has the focus.
+  bool get _ownsEscape =>
+      _barNode.hasFocus &&
+      (widget.onClose != null || (_optionsRowShown && _toggleHasFocus));
+
+  /// Hides the toggles row from the keyboard, with focus on one of its
+  /// toggles, and moves focus to the options button that showed it.
+  void _dismissOptionsFromKeyboard() => _showOptions(false);
 
   // Enter in the field and the search action. Focus stays in the field to
   // type or step again. The buttons call the session directly, which leaves
@@ -387,40 +404,44 @@ class _FindBarState extends State<FindBar>
     final accent = style.accentColor!;
     if (_handles?.color != accent) {
       _handles = FindFieldSelectionControls(accent);
+      _hiddenHandles = FindFieldSelectionControls(accent, hidden: true);
     }
 
-    return Actions(
-      actions: <Type, Action<Intent>>{
-        _CloseFindIntent: _BarAction<_CloseFindIntent>(
-          isEnabled: () => widget.onClose != null,
-          onInvoke: () => widget.onClose?.call(),
-        ),
-      },
-      child: Shortcuts(
-        shortcuts: const <ShortcutActivator, Intent>{
-          SingleActivator(LogicalKeyboardKey.escape): _CloseFindIntent(),
+    return Focus(
+      focusNode: _barNode,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _CloseFindIntent: _BarAction<_CloseFindIntent>(
+            isEnabled: () => widget.onClose != null,
+            onInvoke: () => widget.onClose?.call(),
+          ),
         },
-        // Taps on the buttons count as taps on the field. The field keeps
-        // focus, and with it the on-screen keyboard, while the user steps
-        // through matches.
-        child: TextFieldTapRegion(
-          // Tab order is fixed by FocusTraversalOrder below. Toggles that
-          // appear after the first build would otherwise be visited last.
-          child: FocusTraversalGroup(
-            policy: OrderedTraversalPolicy(),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: style.backgroundColor,
-                borderRadius: style.borderRadius,
-                border: style.border,
-                boxShadow: style.shadows,
-              ),
-              child: Padding(
-                padding: style.padding!,
-                child: ListenableBuilder(
-                  listenable: _session,
-                  builder: (context, _) =>
-                      _buildRow(context, style, hasOverlay),
+        child: Shortcuts(
+          shortcuts: const <ShortcutActivator, Intent>{
+            SingleActivator(LogicalKeyboardKey.escape): _CloseFindIntent(),
+          },
+          // Taps on the buttons count as taps on the field. The field keeps
+          // focus, and with it the on-screen keyboard, while the user steps
+          // through matches.
+          child: TextFieldTapRegion(
+            // Tab order is fixed by FocusTraversalOrder below. Toggles that
+            // appear after the first build would otherwise be visited last.
+            child: FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: style.backgroundColor,
+                  borderRadius: style.borderRadius,
+                  border: style.border,
+                  boxShadow: style.shadows,
+                ),
+                child: Padding(
+                  padding: style.padding!,
+                  child: ListenableBuilder(
+                    listenable: _session,
+                    builder: (context, _) =>
+                        _buildRow(context, style, hasOverlay),
+                  ),
                 ),
               ),
             ),
@@ -452,24 +473,31 @@ class _FindBarState extends State<FindBar>
     final counterText = counter == null
         ? 0.0
         : _textWidth(style, counter, textScaler, textDirection);
-    // A touch bar sets aside room for the widest counter of three digits a
-    // side, or of as many as the match count has, before a counter shows.
-    // The row then holds still when the first letter is typed.
-    final digits = math.max(3, '$count'.length);
-    final reservedText = touch
+    String widest(int digits) => '${'0' * digits}/${'0' * digits}';
+    // A touch bar lays itself out around a counter of three digits a side,
+    // whether or not a counter shows yet and whatever the count. The rows
+    // then hold still when the first letter is typed.
+    final reserve = touch
+        ? _textWidth(style, widest(3), textScaler, textDirection)
+        : counterText;
+    // The width the counter would like, which a longer count makes wider.
+    final wanted = touch
         ? math.max(
-            counterText,
-            _textWidth(
-              style,
-              '${'0' * digits}/${'0' * digits}',
-              textScaler,
-              textDirection,
+            reserve,
+            math.max(
+              counterText,
+              _textWidth(
+                style,
+                widest('$count'.length),
+                textScaler,
+                textDirection,
+              ),
             ),
           )
         : counterText;
     final showCounterSlot = touch || counter != null;
-    final counterSlot = showCounterSlot
-        ? reservedText + counterPadding.horizontal
+    final counterPaddingWidth = showCounterSlot
+        ? counterPadding.horizontal
         : 0.0;
 
     // The toggles, wherever the layout puts them. Their global keys carry
@@ -510,23 +538,41 @@ class _FindBarState extends State<FindBar>
     return LayoutBuilder(
       builder: (context, constraints) {
         final room = constraints.maxWidth;
-        // The field at its narrowest, the counter, and previous, next and
-        // close at their full hit size.
-        final oneRow = minField + _fieldGap + counterSlot + 3 * extent;
-        final togglesInline = toggles > 0 && room >= oneRow + toggles * extent;
+        // The field at its narrowest, the counter's padding, and previous,
+        // next and close at their full hit size.
+        final fixed = minField + _fieldGap + counterPaddingWidth + 3 * extent;
+        final togglesInline =
+            toggles > 0 && room >= fixed + reserve + toggles * extent;
         // Where the toggles do not fit beside the field, a touch bar offers
         // them through an options button and a desktop bar leaves them out.
         final options = touch && toggles > 0 && !togglesInline;
         final optionsExtent = options ? extent : 0.0;
+        // What one row leaves for the counter text.
+        final left =
+            room -
+            fixed -
+            optionsExtent -
+            (togglesInline ? toggles * extent : 0.0);
         // Too narrow for one row. Previous, next and close move below the
-        // field and keep their full hit size.
-        final stacked = room < oneRow + optionsExtent;
-        // A toggle that has focus stays on screen when the bar narrows.
-        if (options && !_optionsOpen && _toggleHasFocus) _optionsOpen = true;
-        final optionsRow = options && _optionsOpen;
+        // field and keep their full hit size. A touch bar keeps one row
+        // while the counter can be drawn at three quarters of its size or
+        // more.
+        final stacked = touch ? left < 0.75 * reserve : left < counterText;
+        // A toggle that has focus stays on screen when the bar narrows. The
+        // row opens for good once the frame is done.
+        final keepToggleOnScreen = options && !_optionsOpen && _toggleHasFocus;
+        if (keepToggleOnScreen) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_optionsOpen && _toggleHasFocus) {
+              setState(() => _optionsOpen = true);
+            }
+          });
+        }
+        final optionsRow = options && (_optionsOpen || keepToggleOnScreen);
         _optionsRowShown = optionsRow;
-        // Beside the field in a stacked bar, the counter only gets what
-        // leaves the field at its narrowest. A longer one is scaled down.
+        // The counter gets the width it wants up to what the row leaves,
+        // and a stacked bar's counter only what leaves the field at its
+        // narrowest. A longer one is scaled down to fit.
         final counterMax = stacked
             ? math.max(
                 0.0,
@@ -536,7 +582,7 @@ class _FindBarState extends State<FindBar>
                     optionsExtent -
                     counterPadding.horizontal,
               )
-            : double.infinity;
+            : (touch ? math.max(0.0, left) : double.infinity);
 
         // The same widgets in every layout, which keeps the field and a
         // focused button in place when the bar switches between them.
@@ -562,7 +608,14 @@ class _FindBarState extends State<FindBar>
                       ),
                       child: FocusTraversalOrder(
                         order: const NumericFocusOrder(0),
-                        child: _buildField(style, hasOverlay, extent),
+                        child: _buildField(
+                          style,
+                          hasOverlay,
+                          extent,
+                          // The caret handle would reach into the toggles
+                          // row below the field and take taps meant for it.
+                          hideHandles: optionsRow,
+                        ),
                       ),
                     ),
                   ),
@@ -573,7 +626,7 @@ class _FindBarState extends State<FindBar>
                       key: const ValueKey('counter'),
                       padding: counterPadding,
                       child: SizedBox(
-                        width: math.min(reservedText, counterMax),
+                        width: math.min(wanted, counterMax),
                         child: counter == null
                             ? null
                             : Semantics(
@@ -606,9 +659,9 @@ class _FindBarState extends State<FindBar>
                       focusNode: _optionsFocus,
                       glyph: FindBarGlyph.options,
                       label: widget.optionsTooltip,
-                      toggled: optionsRow,
+                      expanded: optionsRow,
                       style: style,
-                      onPressed: _toggleOptions,
+                      onPressed: () => _showOptions(!optionsRow),
                     ),
                 ],
               ),
@@ -690,6 +743,7 @@ class _FindBarState extends State<FindBar>
     Key? buttonKey,
     FocusNode? focusNode,
     bool? toggled,
+    bool? expanded,
   }) {
     return FocusTraversalOrder(
       key: key,
@@ -701,12 +755,18 @@ class _FindBarState extends State<FindBar>
         label: label,
         style: style,
         toggled: toggled,
+        expanded: expanded,
         onPressed: onPressed,
       ),
     );
   }
 
-  Widget _buildField(FindBarStyle style, bool hasOverlay, double hitHeight) {
+  Widget _buildField(
+    FindBarStyle style,
+    bool hasOverlay,
+    double hitHeight, {
+    required bool hideHandles,
+  }) {
     final base = style.textStyle!;
     final textStyle = base.copyWith(color: base.color ?? style.foregroundColor);
     final accent = style.accentColor!;
@@ -759,8 +819,11 @@ class _FindBarState extends State<FindBar>
           smartDashesType: SmartDashesType.disabled,
           smartQuotesType: SmartQuotesType.disabled,
           rendererIgnoresPointer: true,
-          showSelectionHandles: _showSelectionHandles,
-          selectionControls: hasOverlay ? _handles : null,
+          showSelectionHandles: _showSelectionHandles && !hideHandles,
+          // A faded out handle still takes taps. Hidden ones are left out.
+          selectionControls: hasOverlay
+              ? (hideHandles ? _hiddenHandles : _handles)
+              : null,
           contextMenuBuilder: hasOverlay ? _buildContextMenu : null,
           onChanged: _onChanged,
           // Keeps focus in the field. Without a callback here the field
@@ -840,13 +903,12 @@ final class FindBarFocusRequests {
     if (_bars.isNotEmpty) _bars.last._focusQuery();
   }
 
-  /// Hides the matching options of the last bar still registered when one
-  /// of them has focus, and reports whether it did.
+  /// Whether a registered bar has focus and handles Escape itself.
   ///
-  /// The scope asks before Escape closes find. Escape on an option closes
-  /// only the options.
-  bool dismissOptions() =>
-      _bars.isNotEmpty && _bars.last._dismissOptionsFromKeyboard();
+  /// The scope leaves Escape alone then. The bar's own shortcuts close find,
+  /// or hide the toggles row when one of its toggles has focus, and nothing
+  /// else acts on the same key press.
+  bool get ownsEscape => _bars.any((bar) => bar._ownsEscape);
 }
 
 /// Hands a [FindBarFocusRequests] to the [FindBar] below it.

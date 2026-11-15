@@ -13,6 +13,7 @@ import 'package:find_in_page/find_in_page.dart';
 import 'package:flutter/foundation.dart';
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -183,6 +184,131 @@ void main() {
             ? {360.0: false, 393.0: true, 411.0: true, 430.0: true}
             : {360.0: false, 393.0: false, 411.0: true, 430.0: true},
       );
+    },
+  );
+
+  testWidgets(
+    'at common font sizes the bar keeps one row while the counter gets at '
+    'least three quarters of its room, and the first letter typed moves '
+    'nothing',
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
+    (tester) async {
+      await _loadRoboto(tester);
+      final semantics = tester.ensureSemantics();
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final hit = defaultTargetPlatform == TargetPlatform.iOS ? 44.0 : 48.0;
+      var oneRow = 0;
+      var twoRows = 0;
+      for (final width in [360.0, 393.0]) {
+        for (final scale in [1.0, 1.1, 1.15, 1.3, 2.0]) {
+          for (final count in [120, 1200]) {
+            final reason = '$width wide, text scale $scale, $count matches';
+            tester.view.physicalSize = Size(width, 800);
+            final controller = FindInPageController();
+            addTearDown(controller.dispose);
+            await tester.pumpWidget(const SizedBox());
+            await tester.pumpWidget(
+              MaterialApp(
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(scale)),
+                  child: child!,
+                ),
+                home: FindBarTheme(
+                  style: const FindBarStyle(
+                    textStyle: TextStyle(fontFamily: 'Roboto'),
+                    counterStyle: TextStyle(fontFamily: 'Roboto'),
+                  ),
+                  child: Scaffold(
+                    body: FindInPageScope(
+                      controller: controller,
+                      child: SingleChildScrollView(
+                        child: Text(List.filled(count, 'go').join(' ')),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            controller.open();
+            await tester.pump();
+
+            // The rule, worked out here from the counter style the bar
+            // resolves to. The bar is 16 inside the scope's padding and its
+            // own padding is 8 a side.
+            final style = FindBarTheme.resolve(
+              tester.element(find.byType(FindBar)),
+            );
+            final painter = TextPainter(
+              text: TextSpan(text: '000/000', style: style.counterStyle),
+              textScaler: TextScaler.linear(scale),
+              textDirection: TextDirection.ltr,
+            )..layout();
+            final reserve = painter.width;
+            painter.dispose();
+            final room = width - 32;
+            final fixed = 80 + 4 + 4 + 3 * hit;
+            final inline = room >= fixed + reserve + 2 * hit;
+            final left = room - fixed - (inline ? 2 * hit : hit);
+            final stacked = left < 0.75 * reserve;
+
+            final before = tester.getSize(find.byType(FindBar)).height;
+            await tester.enterText(_queryField, 'g');
+            await tester.pump();
+            expect(tester.takeException(), isNull, reason: reason);
+            final counter = '1/$count';
+            expect(find.text(counter), findsOneWidget, reason: reason);
+            expect(
+              tester.getSize(find.byType(FindBar)).height,
+              before,
+              reason: 'no jump, $reason',
+            );
+            expect(
+              before,
+              stacked ? 2 * hit + 8 : hit + 8,
+              reason: 'rows, $reason',
+            );
+            stacked ? twoRows++ : oneRow++;
+            // The counter takes what the row leaves, never the field's
+            // minimum.
+            expect(
+              tester.getSize(_queryField).width,
+              greaterThanOrEqualTo(80 - 0.01),
+              reason: reason,
+            );
+
+            // All of the counter is drawn inside its slot, scaled down where
+            // the slot is narrower, and it is still announced in full.
+            final drawn = tester.getRect(find.text(counter));
+            final slot = tester.getRect(find.byKey(const ValueKey('counter')));
+            expect(drawn.left, greaterThanOrEqualTo(slot.left - 0.01));
+            expect(drawn.right, lessThanOrEqualTo(slot.right + 0.01));
+            expect(
+              tester
+                  .renderObject<RenderParagraph>(find.text(counter))
+                  .didExceedMaxLines,
+              isFalse,
+              reason: reason,
+            );
+            expect(
+              tester.getSemantics(find.bySemanticsLabel('Match 1 of $count')),
+              isSemantics(isLiveRegion: true),
+              reason: reason,
+            );
+            controller.close();
+            await tester.pump();
+          }
+        }
+      }
+      // Both outcomes of the rule were met.
+      expect(oneRow, greaterThan(0));
+      expect(twoRows, greaterThan(0));
+      semantics.dispose();
     },
   );
 }

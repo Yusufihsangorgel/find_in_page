@@ -285,8 +285,11 @@ class _FindInPageScopeState extends State<FindInPageScope> {
     // Only consume Escape while the built-in bar is open, so dialogs and
     // other Escape handlers keep working otherwise.
     if (event.logicalKey == LogicalKeyboardKey.escape && _barVisible) {
-      // Escape on one of the bar's search options closes only the options.
-      if (!_barFocus.dismissOptions()) _controller.close();
+      // With focus in a FindBar, the bar's own shortcuts own Escape. They
+      // close find, or hide the search options when a toggle has focus.
+      // Handling it here as well would act twice on one key press.
+      if (_barFocus.ownsEscape) return false;
+      _controller.close();
       return true;
     }
     return false;
