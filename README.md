@@ -464,10 +464,10 @@ becomes active.
 - `FindableListView` needs every row's extent up front, from `itemExtent` or
   `itemExtentBuilder`, and renders no highlights of its own.
 - `FindableListView` aims at the matched row's offset minus 30% of the
-  viewport and does not account for the bar. In a short list, or when a large
-  text scale makes the bar taller, the row can end up under the bar. A row
-  near either end of the list moves only as far as the list allows and can
-  stay under the bar there too.
+  viewport and does not account for the bar. In a short viewport, or when the
+  safe area pushes the bar down or a large text scale makes it taller, the row
+  can end up under the bar. A row near either end of the list moves only as
+  far as the list allows and can stay under a bar at that end.
 - The scope's bar needs an `Overlay` ancestor. A `MaterialApp` and a
   `CupertinoApp` provide one, and so does a `WidgetsApp` with a home page or
   routes. A `FindBar` placed by hand works without one, minus its tooltips

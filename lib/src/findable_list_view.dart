@@ -71,10 +71,11 @@ typedef FindableListItemBuilder =
 ///   gets the match offsets and renders them, since it already owns the
 ///   item's layout. There is no `FindableText`-style automatic span
 ///   rendering here.
-/// - The reveal does not account for the find bar. In a short list, or when
-///   a large text scale makes the bar taller, the matched item can end up
-///   under the bar. An item near either end of the list moves only as far as
-///   the list allows and can stay under the bar there too.
+/// - The reveal does not account for the find bar. In a short viewport, or
+///   when the safe area pushes the bar down or a large text scale makes it
+///   taller, the matched item can end up under the bar. An item near either
+///   end of the list moves only as far as the list allows and can stay under
+///   a bar at that end.
 final class FindableListView extends StatefulWidget {
   /// Creates a searchable lazy list.
   ///
