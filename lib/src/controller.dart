@@ -33,6 +33,18 @@ abstract interface class FindableSource {
   BuildContext? get findableContext;
 }
 
+/// A source that can scroll a range of its own text into view.
+///
+/// Not exported. `FindableText` implements it, which lets the controller aim
+/// at the matched characters instead of the whole widget. That matters in a
+/// paragraph taller than its viewport, where the widget can be on screen
+/// while the matched line is not.
+abstract interface class MatchRectangleReveal implements FindableSource {
+  /// Scrolls the enclosing viewports until the first box covering
+  /// [start]..[end] is visible.
+  void showMatchOnScreen(int start, int end);
+}
+
 /// Drives a find-in-page session: holds the query, computes matches across
 /// all registered sources, and tracks the active match.
 ///
@@ -369,6 +381,12 @@ final class FindInPageController extends ChangeNotifier {
       if (source is RenderedTextSource) {
         // No element to hand to Scrollable.ensureVisible, and aiming at the
         // matched characters beats aiming at the whole paragraph anyway.
+        source.showMatchOnScreen(match.start, match.end);
+        return;
+      }
+      if (source is MatchRectangleReveal) {
+        // Scrolling the whole widget into view can leave the matched line
+        // offscreen when the paragraph is taller than the viewport.
         source.showMatchOnScreen(match.start, match.end);
         return;
       }

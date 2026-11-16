@@ -14,6 +14,14 @@
 - Highlights for text you did not wrap are clipped to where the text is
   visible. A match scrolled under the app bar or out of a scroll view no
   longer paints an empty box over other content.
+- `FindableText` scrolls the matched line into view, as discovered text
+  already did. In a paragraph taller than the viewport the active match could
+  stay offscreen. `test/tall_paragraph_reveal_test.dart` steps through three
+  matches in one tall paragraph.
+- A `FindableText` match is revealed the way discovered text is: the page
+  scrolls only as far as needed, and a match already on screen stays where it
+  is. Before, the whole widget was aligned about 30% down the viewport, even
+  when the match was already visible.
 - On the web, a match after a letter that gets longer when lowercased, such
   as the Turkish dotted capital I (İ), came out one character late for every
   such letter before it, and a match near the end of the text could end past

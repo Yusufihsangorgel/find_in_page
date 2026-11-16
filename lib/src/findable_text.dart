@@ -1,5 +1,7 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import 'auto_discovery.dart';
 import 'controller.dart';
 import 'exclude_from_find.dart';
 import 'scope.dart';
@@ -92,7 +94,8 @@ final class FindableText extends StatefulWidget {
   State<FindableText> createState() => _FindableTextState();
 }
 
-class _FindableTextState extends State<FindableText> implements FindableSource {
+class _FindableTextState extends State<FindableText>
+    implements FindableSource, MatchRectangleReveal {
   FindInPageController? _controller;
 
   @override
@@ -100,6 +103,35 @@ class _FindableTextState extends State<FindableText> implements FindableSource {
 
   @override
   BuildContext? get findableContext => mounted ? context : null;
+
+  @override
+  void showMatchOnScreen(int start, int end) {
+    final paragraph = _paragraph();
+    if (paragraph == null) return;
+    // The rendered paragraph holds exactly [findableText], which makes this
+    // the same reveal discovered text gets.
+    ParagraphSource(paragraph).showMatchOnScreen(start, end);
+  }
+
+  /// The paragraph [build] rendered, or null when there is none.
+  RenderParagraph? _paragraph() {
+    if (!mounted) return null;
+    RenderParagraph? found;
+    void visit(Element element) {
+      if (found != null) return;
+      if (element is RenderObjectElement) {
+        final renderObject = element.renderObject;
+        if (renderObject is RenderParagraph) {
+          found = renderObject;
+          return;
+        }
+      }
+      element.visitChildElements(visit);
+    }
+
+    context.visitChildElements(visit);
+    return found;
+  }
 
   @override
   void didChangeDependencies() {
