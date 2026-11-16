@@ -125,10 +125,13 @@ class _FindableTextState extends State<FindableText>
   /// is inside them.
   ///
   /// [RenderObject.showOnScreen] passes over those views. A user may have no
-  /// way to scroll one, and a match left outside it could never be seen. Each
-  /// such view that does not already show [shown] whole is moved to put
-  /// [match] in its middle. A `PageView` then settles on the page holding the
-  /// match. Both rectangles are in the coordinates of [paragraph].
+  /// way to scroll one, and a match left outside it could never be seen. A
+  /// `PageView` with `allowImplicitScrolling` is scrolled there, but only as
+  /// far as the match needs. It then settles on the nearest page, and that
+  /// can be the page next to the match. Each such view that does not already
+  /// show [shown] whole is moved to put [match] in its middle. A `PageView`
+  /// then settles on the page holding the match. Both rectangles are in the
+  /// coordinates of [paragraph].
   void _showInFixedScrollViews(RenderBox paragraph, Rect match, Rect shown) {
     for (
       var scrollable = context.findAncestorStateOfType<ScrollableState>();
@@ -136,7 +139,10 @@ class _FindableTextState extends State<FindableText>
       scrollable = scrollable.context.findAncestorStateOfType<ScrollableState>()
     ) {
       final position = scrollable.position;
-      if (position.allowImplicitScrolling || !position.hasPixels) continue;
+      if (!position.hasPixels) continue;
+      if (position.allowImplicitScrolling && !_snapsToPages(position.physics)) {
+        continue;
+      }
       final viewport = _viewportOf(scrollable, paragraph);
       if (viewport == null) continue;
       RevealedOffset reveal(double alignment, Rect rect) =>
@@ -158,6 +164,15 @@ class _FindableTextState extends State<FindableText>
         curve: Curves.easeInOut,
       );
     }
+  }
+
+  /// Whether [physics] settles its scroll view on a whole page, as a
+  /// `PageView` does.
+  static bool _snapsToPages(ScrollPhysics physics) {
+    for (ScrollPhysics? node = physics; node != null; node = node.parent) {
+      if (node is PageScrollPhysics) return true;
+    }
+    return false;
   }
 
   /// The viewport [scrollable] scrolls, found among the ancestors of

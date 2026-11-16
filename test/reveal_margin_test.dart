@@ -113,6 +113,59 @@ void main() {
         await step(controller.next, 'next scrolls up to line 60');
       });
 
+      testWidgets('stays clear of the bar under an app bar', (tester) async {
+        tester.view.physicalSize = const Size(400, 800);
+        tester.view.devicePixelRatio = 1;
+        // Two rows tall, the bar reaches 56 below the app bar.
+        tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+        addTearDown(tester.view.reset);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final controller = FindInPageController();
+        final scroll = ScrollController();
+        addTearDown(controller.dispose);
+        addTearDown(scroll.dispose);
+
+        await tester.pumpWidget(
+          _page(kind, controller: controller, scroll: scroll, appBar: true),
+        );
+        controller.open();
+        await tester.pumpAndSettle();
+        final bar = tester.getRect(find.byType(FindBar));
+        final body = tester.getRect(find.byType(SingleChildScrollView));
+        expect(bar.bottom, greaterThan(body.top + 40), reason: 'bar $bar');
+
+        final rect = await _wrapUp(tester, controller);
+        expect(rect.top - bar.bottom, closeTo(16, 0.5), reason: '$rect $bar');
+      });
+
+      testWidgets('stays clear of a bar from barBuilder', (tester) async {
+        tester.view.physicalSize = const Size(400, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final controller = FindInPageController();
+        final scroll = ScrollController();
+        addTearDown(controller.dispose);
+        addTearDown(scroll.dispose);
+
+        const barKey = ValueKey('bar');
+        await tester.pumpWidget(
+          _page(
+            kind,
+            controller: controller,
+            scroll: scroll,
+            // Taller than any margin that does not measure the bar.
+            barBuilder: (context, session) =>
+                const SizedBox(key: barKey, width: 300, height: 150),
+          ),
+        );
+        controller.open();
+        await tester.pumpAndSettle();
+        final bar = tester.getRect(find.byKey(barKey));
+
+        final rect = await _wrapUp(tester, controller);
+        expect(rect.top - bar.bottom, closeTo(16, 0.5), reason: '$rect $bar');
+      });
+
       testWidgets('keeps 72 from both edges with no bar to measure', (
         tester,
       ) async {
@@ -399,14 +452,17 @@ void main() {
   }
 }
 
-/// A page of 200 lines with no app bar. Lines 60, 120 and 190 hold `needle`,
-/// and the widget drawing line `i` has the key `ValueKey(i)`.
+/// A page of 200 lines, with no app bar unless [appBar] is true. Lines 60, 120
+/// and 190 hold `needle`, and the widget drawing line `i` has the key
+/// `ValueKey(i)`.
 Widget _page(
   _Kind kind, {
   required FindInPageController controller,
   required ScrollController scroll,
   AlignmentGeometry barAlignment = AlignmentDirectional.topEnd,
   bool showBar = true,
+  bool appBar = false,
+  FindBarBuilder? barBuilder,
 }) {
   const needles = {60, 120, 190};
   return MaterialApp(
@@ -414,7 +470,9 @@ Widget _page(
       controller: controller,
       barAlignment: barAlignment,
       showBar: showBar,
+      barBuilder: barBuilder,
       child: Scaffold(
+        appBar: appBar ? AppBar(title: const Text('Title')) : null,
         body: SingleChildScrollView(
           controller: scroll,
           child: Column(
@@ -431,6 +489,24 @@ Widget _page(
       ),
     ),
   );
+}
+
+/// Searches a [_page] for `needle`, steps down to line 190 and wraps up to
+/// line 60. Returns where line 60 lands, in global coordinates.
+Future<Rect> _wrapUp(
+  WidgetTester tester,
+  FindInPageController controller,
+) async {
+  controller.search('needle');
+  await tester.pumpAndSettle();
+  controller.next();
+  await tester.pumpAndSettle();
+  controller.next();
+  await tester.pumpAndSettle();
+  controller.next();
+  await tester.pumpAndSettle();
+  expect(controller.activeMatch!.source.findableText, 'line 60 needle');
+  return _activeRect(tester, controller);
 }
 
 /// The active match of a [_page] in global coordinates.

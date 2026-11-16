@@ -133,10 +133,13 @@ in #5.
   a `FindableText` was aligned about 30% down the viewport even when the
   match was already visible. A `FindableText` in a `PageView` or under
   `NeverScrollableScrollPhysics` is still scrolled there, now to put the match
-  in the middle of that view. `test/reveal_margin_test.dart` covers text
-  scales from 1 to 3, a bar at the bottom, short, sideways and nested scroll
-  views, and a `SelectionArea`. `test/fixed_scroll_view_reveal_test.dart`
-  covers the `PageView` and the view the user cannot scroll.
+  in the middle of that view. A `FindableText` near the start of a scroll view
+  nested in another can now end up under the bar, as discovered text could
+  before. `test/reveal_margin_test.dart` covers text scales from 1 to 3, an
+  app bar, a bar at the bottom and one from `barBuilder`, short, sideways and
+  nested scroll views, and a `SelectionArea`.
+  `test/fixed_scroll_view_reveal_test.dart` covers a `PageView` with and
+  without `allowImplicitScrolling`, and the view the user cannot scroll.
 
 ### Migration notes
 

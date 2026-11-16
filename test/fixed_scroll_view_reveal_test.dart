@@ -11,71 +11,84 @@ import 'package:flutter_test/flutter_test.dart';
 /// all. `FindableText` moves both until the match is in view, as
 /// `Scrollable.ensureVisible` did in 2.4.
 void main() {
-  testWidgets('turns a PageView to the page holding the match', (tester) async {
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final controller = FindInPageController();
-    final pages = PageController();
-    addTearDown(controller.dispose);
-    addTearDown(pages.dispose);
+  // With allowImplicitScrolling, showOnScreen scrolls the PageView only until
+  // the match shows, and the view then settles on the nearest page.
+  for (final implicit in [false, true]) {
+    final name = implicit ? ', with allowImplicitScrolling' : '';
+    testWidgets('turns a PageView to the page holding the match$name', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = FindInPageController();
+      final pages = PageController();
+      addTearDown(controller.dispose);
+      addTearDown(pages.dispose);
 
-    const needles = {1, 3};
-    await tester.pumpWidget(
-      MaterialApp(
-        home: FindInPageScope(
-          controller: controller,
-          child: Scaffold(
-            body: PageView(
-              controller: pages,
-              children: [
-                for (var i = 0; i < 4; i++)
-                  _KeptAlive(
-                    // The match ends in the first half of its page. Scrolling
-                    // only until it shows would stop short of half a page,
-                    // and the PageView would settle back on the one before.
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: FindableText(
-                          needles.contains(i) ? 'needle $i' : 'page $i',
-                          key: ValueKey(i),
+      const needles = {1, 3};
+      final changed = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: FindInPageScope(
+            controller: controller,
+            child: Scaffold(
+              body: PageView(
+                controller: pages,
+                allowImplicitScrolling: implicit,
+                onPageChanged: changed.add,
+                children: [
+                  for (var i = 0; i < 4; i++)
+                    _KeptAlive(
+                      // The match ends in the first half of its page.
+                      // Scrolling only until it shows would stop short of half
+                      // a page, and the PageView would settle back on the one
+                      // before.
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: FindableText(
+                            needles.contains(i) ? 'needle $i' : 'page $i',
+                            key: ValueKey(i),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
-    // A page is built once it has been shown, and kept after that, as tabs a
-    // user has opened are.
-    for (final page in [1, 2, 3, 0]) {
-      pages.jumpToPage(page);
-      await tester.pump();
-    }
-    await tester.pumpAndSettle();
-    controller.open();
-    await tester.pumpAndSettle();
-    final view = tester.getRect(find.byType(PageView));
-
-    Future<void> step(void Function() move, String name) async {
-      move();
+      );
+      // A page is built once it has been shown, and kept after that, as tabs
+      // a user has opened are.
+      for (final page in [1, 2, 3, 0]) {
+        pages.jumpToPage(page);
+        await tester.pump();
+      }
       await tester.pumpAndSettle();
-      final match = controller.activeMatch!;
-      final page = int.parse(match.source.findableText.split(' ')[1]);
-      expect(pages.page, page, reason: name);
-      final rect = _matchRect(tester, ValueKey(page), match);
-      expect(_inside(rect, view), isTrue, reason: '$name: $rect');
-    }
+      controller.open();
+      await tester.pumpAndSettle();
+      final view = tester.getRect(find.byType(PageView));
 
-    await step(() => controller.search('needle'), 'search, page 1');
-    await step(controller.next, 'next, page 3');
-    await step(controller.next, 'next wraps to page 1');
-  });
+      Future<void> step(void Function() move, String name) async {
+        move();
+        await tester.pumpAndSettle();
+        final match = controller.activeMatch!;
+        final page = int.parse(match.source.findableText.split(' ')[1]);
+        expect(pages.page, page, reason: name);
+        // The app hears of the new page as it would after a swipe.
+        expect(changed.last, page, reason: name);
+        final rect = _matchRect(tester, ValueKey(page), match);
+        expect(_inside(rect, view), isTrue, reason: '$name: $rect');
+      }
+
+      await step(() => controller.search('needle'), 'search, page 1');
+      await step(controller.next, 'next, page 3');
+      await step(controller.next, 'next wraps to page 1');
+    });
+  }
 
   testWidgets('scrolls a view under NeverScrollableScrollPhysics', (
     tester,
@@ -140,6 +153,15 @@ void main() {
     rect = await step(controller.next, 'line 170');
     expect(rect.center.dy, closeTo(body.center.dy, 0.5));
     rect = await step(controller.previous, 'line 103 again');
+    expect(rect.center.dy, closeTo(body.center.dy, 0.5));
+
+    // On screen but under the bar counts as out of view.
+    scroll.jumpTo(scroll.offset + rect.top - bar.top);
+    await tester.pump();
+    rect = await step(
+      () => controller.selectMatch(1),
+      'line 103 under the bar',
+    );
     expect(rect.center.dy, closeTo(body.center.dy, 0.5));
   });
 }
