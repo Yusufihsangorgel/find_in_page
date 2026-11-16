@@ -336,10 +336,15 @@ becomes active.
   registered source with no anchor on the page comes first. With discovery
   off, matches follow registration order.
 - Navigation scrolls the matched line into view for discovered text and
-  `FindableText`, also inside a paragraph taller than the viewport. A custom
-  `FindableSource` without a `reveal` callback has its whole widget scrolled
-  into view. In a widget taller than the viewport, that can leave the match
-  offscreen.
+  `FindableText`, also inside a paragraph taller than the viewport. It keeps
+  the match 72 pixels from the top and bottom edges, or a quarter of a short
+  scroll view, to stay clear of the find bar. A bar reaching further down, at
+  a text scale above 2 or over a page that runs under the status bar, can
+  still cover a match revealed at the top. Scroll views that do not scroll
+  implicitly, such as a `PageView` or one with `NeverScrollableScrollPhysics`,
+  are not moved. A custom `FindableSource` without a `reveal` callback has its
+  whole widget scrolled into view. In a widget taller than the viewport, that
+  can leave the match offscreen.
 - Matches clipped away by `maxLines` or `overflow` are counted and navigated
   to, but they cannot become visible.
 - `FindableListView` needs a fixed `itemExtent` and renders no highlights of

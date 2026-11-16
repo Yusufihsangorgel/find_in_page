@@ -16,12 +16,18 @@
   longer paints an empty box over other content.
 - `FindableText` scrolls the matched line into view, as discovered text
   already did. In a paragraph taller than the viewport the active match could
-  stay offscreen. `test/tall_paragraph_reveal_test.dart` steps through three
+  stay offscreen. `test/tall_paragraph_reveal_test.dart` steps through four
   matches in one tall paragraph.
-- A `FindableText` match is now revealed like discovered text: the page
-  scrolls only as far as needed, and a match already on screen stays where it
-  is. Before, the whole widget was aligned about 30% down the viewport, even
-  when the match was already visible.
+- Revealing a match, in `FindableText` or in discovered text, scrolls only as
+  far as needed to keep the match 72 pixels from the top and bottom of the
+  viewport, or a quarter of the viewport's height when that is less. A match
+  already that far inside stays where it is. Before, discovered text stopped
+  at the very edge, under the find bar on a page with no app bar, and a
+  `FindableText` was aligned about 30% down the viewport even when the match
+  was already visible. Like discovered text, a `FindableText` inside a
+  `PageView` or under `NeverScrollableScrollPhysics` is no longer scrolled.
+  `test/reveal_margin_test.dart` covers the bar, short and nested scroll
+  views, and a `SelectionArea`.
 - On the web, a match after a letter that gets longer when lowercased, such
   as the Turkish dotted capital I (İ), came out one character late for every
   such letter before it, and a match near the end of the text could end past

@@ -9,7 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Scrolling the whole paragraph into view is not enough here: any fixed
 /// position for the paragraph shows only a band of its lines. The matches sit
 /// near the top, the middle and the bottom, and every step checks that the
-/// active one is on screen.
+/// active one is on screen. The last step moves to a match that is already on
+/// screen and checks that the page does not move.
 void main() {
   _testTallParagraph(
     'Text',
@@ -52,7 +53,7 @@ void _testTallParagraph(
 
     const viewportKey = ValueKey('viewport');
     const textKey = ValueKey('paragraph');
-    const needleLines = {5, 40, 75};
+    const needleLines = {5, 40, 72, 75};
     final data = [
       for (var line = 1; line <= 80; line++)
         needleLines.contains(line) ? 'line $line needle' : 'line $line',
@@ -101,8 +102,8 @@ void _testTallParagraph(
         text.getTransformTo(viewport),
         boxes.first.toRect(),
       );
-      // Scrolling down puts the match against the bottom edge, and
-      // Rect.contains leaves that edge out. Compare the edges instead.
+      // Compare the edges directly. Rect.contains leaves the bottom edge out,
+      // and at the end of the scroll range a match can sit right on it.
       expect(rect.top, greaterThanOrEqualTo(-0.5), reason: step);
       expect(
         rect.bottom,
@@ -113,7 +114,7 @@ void _testTallParagraph(
 
     controller.search('needle');
     await tester.pumpAndSettle();
-    expect(controller.matchCount, 3);
+    expect(controller.matchCount, 4);
     expectActiveMatchOnScreen('first match, line 5');
     expect(
       scrollController.offset,
@@ -127,6 +128,10 @@ void _testTallParagraph(
 
     controller.next();
     await tester.pumpAndSettle();
+    expectActiveMatchOnScreen('next, line 72');
+
+    controller.next();
+    await tester.pumpAndSettle();
     expectActiveMatchOnScreen('next, line 75');
 
     controller.next();
@@ -136,5 +141,18 @@ void _testTallParagraph(
     controller.previous();
     await tester.pumpAndSettle();
     expectActiveMatchOnScreen('previous wraps to line 75');
+
+    // The offset check above runs at 0, where the scroll range clamps a
+    // reveal that centers the match. Line 72 is on screen here, three lines
+    // above line 75 and clear of the reveal margin at both edges.
+    final offset = scrollController.offset;
+    controller.previous();
+    await tester.pumpAndSettle();
+    expectActiveMatchOnScreen('previous, line 72');
+    expect(
+      scrollController.offset,
+      offset,
+      reason: 'line 72 was already on screen',
+    );
   });
 }

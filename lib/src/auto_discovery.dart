@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
@@ -51,14 +52,19 @@ sealed class RenderedTextSource implements FindableSource {
   }
 
   /// Scrolls whatever viewports contain this text until [start]..[end] is
-  /// visible.
+  /// visible, with a margin above and below it.
+  ///
+  /// The margin is 72 logical pixels, or a quarter of the shortest enclosing
+  /// viewport when that is less. A match already at least that far from both
+  /// edges stays where it is. Near the start or end of the scroll range the
+  /// margin shrinks to what the range allows.
   void showMatchOnScreen(int start, int end) {
     final box = renderObject;
     if (!box.attached || !box.hasSize) return;
     final boxes = textBoxes(start, end);
     box.showOnScreen(
       descendant: box,
-      rect: boxes.isEmpty ? null : boxes.first.toRect(),
+      rect: boxes.isEmpty ? null : _withRevealMargin(box, boxes.first.toRect()),
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
     );
@@ -71,6 +77,37 @@ sealed class RenderedTextSource implements FindableSource {
 
   @override
   int get hashCode => identityHashCode(renderObject);
+}
+
+/// The largest gap kept between a revealed match and the top or bottom edge
+/// of its viewport, in logical pixels.
+///
+/// The built-in find bar is 48 tall and sits 8 below the top of the safe
+/// area. Its lower edge is at 56. Scrolling up on a page with no app bar used
+/// to leave the match at the top edge, under the bar. 72 clears it with room
+/// to spare for a taller bar.
+const double _revealMargin = 72;
+
+/// [match] with the reveal margin added above and below.
+///
+/// The margin is at most a quarter of the shortest viewport around [box]. In
+/// a short scroll view that leaves half of it for the match and for matches
+/// that need no scrolling. Only the vertical extent grows: the find bar spans
+/// the top of the screen, and a horizontal margin would only make a sideways
+/// list scroll further than needed.
+Rect _withRevealMargin(RenderObject box, Rect match) {
+  var margin = _revealMargin;
+  for (var node = box.parent; node != null; node = node.parent) {
+    if (node is RenderBox && node is RenderAbstractViewport && node.hasSize) {
+      margin = math.min(margin, node.size.height / 4);
+    }
+  }
+  return Rect.fromLTRB(
+    match.left,
+    match.top - margin,
+    match.right,
+    match.bottom + margin,
+  );
 }
 
 /// Text drawn by a `Text`, `Text.rich`, or any widget that builds one,
