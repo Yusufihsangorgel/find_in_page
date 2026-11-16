@@ -28,8 +28,10 @@ jobs:
       # run there too. Their size checks override the target platform, which
       # picks the button hit size in a browser as well. The reveal tests run
       # there too. They place each match from text box geometry, and the web
-      # engine computes that on its own.
-      - run: flutter test --platform chrome test/text_fold_test.dart test/controller_contract_test.dart test/fold_table_test.dart test/find_bar_test.dart test/fixed_scroll_view_reveal_test.dart test/reveal_margin_test.dart test/tall_paragraph_reveal_test.dart
+      # engine computes that on its own. The scroll into view and highlight
+      # clipping tests turn the same text boxes into rectangles and run there
+      # too.
+      - run: flutter test --platform chrome test/text_fold_test.dart test/controller_contract_test.dart test/fold_table_test.dart test/find_bar_test.dart test/fixed_scroll_view_reveal_test.dart test/reveal_margin_test.dart test/tall_paragraph_reveal_test.dart test/show_on_screen_test.dart test/highlight_clip_test.dart
 
   # The oldest Flutter that pubspec.yaml accepts. 3.41.0 ships Dart 3.11.0,
   # which the sdk constraint needs. Code that leans on a newer API fails here
