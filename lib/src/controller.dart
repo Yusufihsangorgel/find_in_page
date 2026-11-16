@@ -35,7 +35,7 @@ abstract interface class FindableSource {
 
 /// A source that can scroll a range of its own text into view.
 ///
-/// Not exported. `FindableText` implements it, which lets the controller aim
+/// Not exported. `FindableText` implements it, and the controller then aims
 /// at the matched characters instead of the whole widget. That matters in a
 /// paragraph taller than its viewport, where the widget can be on screen
 /// while the matched line is not.

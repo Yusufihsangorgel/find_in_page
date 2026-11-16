@@ -338,8 +338,8 @@ becomes active.
 - Navigation scrolls the matched line into view for discovered text and
   `FindableText`, also inside a paragraph taller than the viewport. A custom
   `FindableSource` without a `reveal` callback has its whole widget scrolled
-  into view, which can leave the match offscreen when that widget is taller
-  than the viewport.
+  into view. In a widget taller than the viewport, that can leave the match
+  offscreen.
 - Matches clipped away by `maxLines` or `overflow` are counted and navigated
   to, but they cannot become visible.
 - `FindableListView` needs a fixed `itemExtent` and renders no highlights of

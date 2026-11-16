@@ -108,8 +108,8 @@ class _FindableTextState extends State<FindableText>
   void showMatchOnScreen(int start, int end) {
     final paragraph = _paragraph();
     if (paragraph == null) return;
-    // The rendered paragraph holds exactly [findableText], which makes this
-    // the same reveal discovered text gets.
+    // The rendered paragraph holds exactly [findableText]. Discovered text
+    // gets the same reveal.
     ParagraphSource(paragraph).showMatchOnScreen(start, end);
   }
 

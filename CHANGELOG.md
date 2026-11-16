@@ -18,7 +18,7 @@
   already did. In a paragraph taller than the viewport the active match could
   stay offscreen. `test/tall_paragraph_reveal_test.dart` steps through three
   matches in one tall paragraph.
-- A `FindableText` match is revealed the way discovered text is: the page
+- A `FindableText` match is now revealed like discovered text: the page
   scrolls only as far as needed, and a match already on screen stays where it
   is. Before, the whole widget was aligned about 30% down the viewport, even
   when the match was already visible.

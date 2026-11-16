@@ -101,8 +101,8 @@ void _testTallParagraph(
         text.getTransformTo(viewport),
         boxes.first.toRect(),
       );
-      // Scrolling down puts the match against the bottom edge, which
-      // Rect.contains leaves out. Compare the edges instead.
+      // Scrolling down puts the match against the bottom edge, and
+      // Rect.contains leaves that edge out. Compare the edges instead.
       expect(rect.top, greaterThanOrEqualTo(-0.5), reason: step);
       expect(
         rect.bottom,
