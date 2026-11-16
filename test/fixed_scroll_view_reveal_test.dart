@@ -90,6 +90,183 @@ void main() {
     });
   }
 
+  // A match near the top of the page on screen stays under the bar. Moving
+  // the view toward it ends on that same page again, after a visible jump.
+  for (final implicit in [false, true]) {
+    final name = implicit ? ', with allowImplicitScrolling' : '';
+    testWidgets('keeps a vertical PageView on its page$name', (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = FindInPageController();
+      final pages = PageController(initialPage: 1);
+      addTearDown(controller.dispose);
+      addTearDown(pages.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: FindInPageScope(
+            controller: controller,
+            child: Scaffold(
+              body: PageView(
+                controller: pages,
+                scrollDirection: Axis.vertical,
+                allowImplicitScrolling: implicit,
+                children: [
+                  for (var i = 0; i < 3; i++)
+                    Align(
+                      alignment: AlignmentDirectional.topStart,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                        child: FindableText(i == 1 ? 'needle $i' : 'page $i'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      controller.open();
+      await tester.pumpAndSettle();
+      final start = pages.position.pixels;
+      final offsets = <double>[];
+      pages.addListener(() => offsets.add(pages.position.pixels));
+
+      controller.search('needle');
+      await tester.pumpAndSettle();
+      expect(pages.page, 1);
+      // With allowImplicitScrolling, showOnScreen still nudges the view by
+      // the bar's margin before it settles back.
+      final nudge = implicit ? 80.0 : 0.0;
+      for (final offset in offsets) {
+        expect(offset, greaterThanOrEqualTo(start - nudge - 0.5));
+      }
+    });
+  }
+
+  // A scroll view inside a tab or a page brings the match inside its own
+  // bounds. The tab or the page around it stays where it is.
+  testWidgets('keeps a TabBarView on the tab holding a sideways row', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = FindInPageController();
+    final tabs = TabController(length: 2, vsync: tester);
+    final row = ScrollController();
+    addTearDown(controller.dispose);
+    addTearDown(tabs.dispose);
+    addTearDown(row.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FindInPageScope(
+          controller: controller,
+          child: Scaffold(
+            body: TabBarView(
+              controller: tabs,
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: SingleChildScrollView(
+                    controller: row,
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < 30; i++)
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: FindableText(
+                              i == 25 ? 'chip needle' : 'chip $i',
+                              key: ValueKey(i),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Text('second tab'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    controller.open();
+    await tester.pumpAndSettle();
+    final view = tester.getRect(find.byType(TabBarView));
+
+    controller.search('needle');
+    await tester.pumpAndSettle();
+    expect(tabs.index, 0);
+    expect(row.offset, greaterThan(0));
+    final match = controller.activeMatch!;
+    final rect = _matchRect(tester, const ValueKey(25), match);
+    expect(_inside(rect, view), isTrue, reason: '$rect');
+  });
+
+  for (final implicit in [false, true]) {
+    final name = implicit ? ', with allowImplicitScrolling' : '';
+    testWidgets('keeps a vertical PageView on the page holding a list$name', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = FindInPageController();
+      final pages = PageController(initialPage: 1);
+      final list = ScrollController();
+      addTearDown(controller.dispose);
+      addTearDown(pages.dispose);
+      addTearDown(list.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: FindInPageScope(
+            controller: controller,
+            child: Scaffold(
+              body: PageView(
+                controller: pages,
+                scrollDirection: Axis.vertical,
+                allowImplicitScrolling: implicit,
+                children: [
+                  const Text('page 0'),
+                  SingleChildScrollView(
+                    controller: list,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var i = 1; i <= 100; i++)
+                          FindableText(
+                            i == 70 ? 'line $i needle' : 'line $i',
+                            key: ValueKey(i),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const Text('page 2'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      controller.open();
+      await tester.pumpAndSettle();
+      final view = tester.getRect(find.byType(PageView));
+
+      controller.search('needle');
+      await tester.pumpAndSettle();
+      expect(pages.page, 1);
+      expect(list.offset, greaterThan(0));
+      final match = controller.activeMatch!;
+      final rect = _matchRect(tester, const ValueKey(70), match);
+      expect(_inside(rect, view), isTrue, reason: '$rect');
+    });
+  }
+
   testWidgets('scrolls a view under NeverScrollableScrollPhysics', (
     tester,
   ) async {

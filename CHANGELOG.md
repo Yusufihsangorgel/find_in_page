@@ -139,7 +139,8 @@ in #5.
   app bar, a bar at the bottom and one from `barBuilder`, short, sideways and
   nested scroll views, and a `SelectionArea`.
   `test/fixed_scroll_view_reveal_test.dart` covers a `PageView` with and
-  without `allowImplicitScrolling`, and the view the user cannot scroll.
+  without `allowImplicitScrolling`, a vertical one, a list in a page and a
+  sideways row in a tab, and the view the user cannot scroll.
 
 ### Migration notes
 

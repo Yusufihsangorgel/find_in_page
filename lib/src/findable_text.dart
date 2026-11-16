@@ -120,19 +120,29 @@ class _FindableTextState extends State<FindableText>
     _showInFixedScrollViews(paragraph, revealed.match, revealed.shown);
   }
 
-  /// Moves the scroll views around this text that do not scroll implicitly,
-  /// a `PageView` or one under `NeverScrollableScrollPhysics`, until [shown]
-  /// is inside them.
+  /// Moves a `PageView` around this text, or a scroll view under
+  /// `NeverScrollableScrollPhysics`, until the match is inside it.
   ///
-  /// [RenderObject.showOnScreen] passes over those views. A user may have no
-  /// way to scroll one, and a match left outside it could never be seen. A
-  /// `PageView` with `allowImplicitScrolling` is scrolled there, but only as
-  /// far as the match needs. It then settles on the nearest page, and that
-  /// can be the page next to the match. Each such view that does not already
-  /// show [shown] whole is moved to put [match] in its middle. A `PageView`
-  /// then settles on the page holding the match. Both rectangles are in the
-  /// coordinates of [paragraph].
+  /// [RenderObject.showOnScreen] passes over a view that does not scroll
+  /// implicitly. A user may have no way to scroll one, and a match left
+  /// outside it could never be seen. A `PageView` with `allowImplicitScrolling`
+  /// is scrolled there, but only as far as the match needs. It then settles on
+  /// the nearest page, and that can be the page next to the match. A view
+  /// under `NeverScrollableScrollPhysics` that does not already show [shown]
+  /// whole, or a `PageView` that does not show [match], is moved to put
+  /// [match] in its middle. A `PageView` then settles on the page holding the
+  /// match. It cannot move a match within the page it shows, and leaves that
+  /// page in place. Both rectangles are in the coordinates of [paragraph].
+  ///
+  /// A scroll view between the text and such a view brings the match inside
+  /// its own bounds, by itself or moved here. The view around it only has to
+  /// show that part of it, as `Scrollable.ensureVisible` does. A tab holding
+  /// a sideways row of chips stays on screen, and so does a page holding a
+  /// list.
   void _showInFixedScrollViews(RenderBox paragraph, Rect match, Rect shown) {
+    RenderObject target = paragraph;
+    RenderAbstractViewport? inner;
+    var innerAxis = Axis.vertical;
     for (
       var scrollable = context.findAncestorStateOfType<ScrollableState>();
       scrollable != null;
@@ -140,21 +150,41 @@ class _FindableTextState extends State<FindableText>
     ) {
       final position = scrollable.position;
       if (!position.hasPixels) continue;
-      if (position.allowImplicitScrolling && !_snapsToPages(position.physics)) {
-        continue;
-      }
       final viewport = _viewportOf(scrollable, paragraph);
       if (viewport == null) continue;
+      // The two scroll views of a two-dimensional view share its viewport.
+      if (inner != null && !identical(inner, viewport)) {
+        final transform = target.getTransformTo(inner);
+        final bounds = inner.paintBounds;
+        match = _moveInto(
+          bounds,
+          MatrixUtils.transformRect(transform, match),
+          innerAxis,
+        );
+        shown = _moveInto(
+          bounds,
+          MatrixUtils.transformRect(transform, shown),
+          innerAxis,
+        );
+        target = inner;
+      }
+      inner = viewport;
+      innerAxis = position.axis;
+      final paged = _snapsToPages(position.physics);
+      if (position.allowImplicitScrolling && !paged) continue;
       RevealedOffset reveal(double alignment, Rect rect) =>
           viewport.getOffsetToReveal(
-            paragraph,
+            target,
             alignment,
             rect: rect,
             axis: position.axis,
           );
+      // A view that settles on whole pages cannot move a match within the
+      // page it shows. Only a match outside that page is worth a move.
+      final wanted = paged ? match : shown;
       final hidden = RevealedOffset.clampOffset(
-        leadingEdgeOffset: reveal(0, shown),
-        trailingEdgeOffset: reveal(1, shown),
+        leadingEdgeOffset: reveal(0, wanted),
+        trailingEdgeOffset: reveal(1, wanted),
         currentOffset: position.pixels,
       );
       if (hidden == null) continue;
@@ -164,6 +194,27 @@ class _FindableTextState extends State<FindableText>
         curve: Curves.easeInOut,
       );
     }
+  }
+
+  /// [rect] moved along [axis] until it is inside [bounds]. A rectangle
+  /// longer than [bounds] starts where they start.
+  static Rect _moveInto(Rect bounds, Rect rect, Axis axis) {
+    double shift(double start, double end, double min, double max) {
+      if (end - start >= max - min || start < min) return min - start;
+      if (end > max) return max - end;
+      return 0;
+    }
+
+    return switch (axis) {
+      Axis.vertical => rect.translate(
+        0,
+        shift(rect.top, rect.bottom, bounds.top, bounds.bottom),
+      ),
+      Axis.horizontal => rect.translate(
+        shift(rect.left, rect.right, bounds.left, bounds.right),
+        0,
+      ),
+    };
   }
 
   /// Whether [physics] settles its scroll view on a whole page, as a

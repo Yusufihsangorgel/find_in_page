@@ -447,10 +447,12 @@ becomes active.
   `FindableText` such a view is moved to put the match in its middle, and a
   `PageView` then settles on the page holding the match. The app sees the
   change through its `ScrollController`, and a `PageView` reports the new
-  page to `onPageChanged`. Discovered text in such a view can stay out of
-  view. A custom `FindableSource` without a `reveal` callback has its whole
-  widget scrolled into view. In a widget taller than the viewport, that can
-  leave the match offscreen.
+  page to `onPageChanged`. A vertical `PageView` cannot move a match within
+  the page it shows, and a match near the top of that page can stay under
+  the bar. Discovered text in such a view can stay out of view. A custom
+  `FindableSource` without a `reveal` callback has its whole widget scrolled
+  into view. In a widget taller than the viewport, that can leave the match
+  offscreen.
 - Matches clipped away by `maxLines` or `overflow` are counted and navigated
   to, but they cannot become visible.
 - `FindableListView` needs every row's extent up front, from `itemExtent` or
