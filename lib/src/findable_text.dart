@@ -138,11 +138,13 @@ class _FindableTextState extends State<FindableText>
   /// its own bounds, by itself or moved here. The view around it only has to
   /// show that part of it, as `Scrollable.ensureVisible` does. A tab holding
   /// a sideways row of chips stays on screen, and so does a page holding a
-  /// list.
+  /// list or a table.
   void _showInFixedScrollViews(RenderBox paragraph, Rect match, Rect shown) {
     RenderObject target = paragraph;
     RenderAbstractViewport? inner;
-    var innerAxis = Axis.vertical;
+    // The axes [inner] scrolls along. The two scroll views of a
+    // two-dimensional view share its viewport, one for each axis.
+    final innerAxes = <Axis>{};
     for (
       var scrollable = context.findAncestorStateOfType<ScrollableState>();
       scrollable != null;
@@ -152,24 +154,24 @@ class _FindableTextState extends State<FindableText>
       if (!position.hasPixels) continue;
       final viewport = _viewportOf(scrollable, paragraph);
       if (viewport == null) continue;
-      // The two scroll views of a two-dimensional view share its viewport.
       if (inner != null && !identical(inner, viewport)) {
         final transform = target.getTransformTo(inner);
         final bounds = inner.paintBounds;
         match = _moveInto(
           bounds,
           MatrixUtils.transformRect(transform, match),
-          innerAxis,
+          innerAxes,
         );
         shown = _moveInto(
           bounds,
           MatrixUtils.transformRect(transform, shown),
-          innerAxis,
+          innerAxes,
         );
         target = inner;
+        innerAxes.clear();
       }
       inner = viewport;
-      innerAxis = position.axis;
+      innerAxes.add(position.axis);
       final paged = _snapsToPages(position.physics);
       if (position.allowImplicitScrolling && !paged) continue;
       RevealedOffset reveal(double alignment, Rect rect) =>
@@ -196,25 +198,27 @@ class _FindableTextState extends State<FindableText>
     }
   }
 
-  /// [rect] moved along [axis] until it is inside [bounds]. A rectangle
-  /// longer than [bounds] starts where they start.
-  static Rect _moveInto(Rect bounds, Rect rect, Axis axis) {
+  /// [rect] moved along each of [axes] until it is inside [bounds]. Along an
+  /// axis where it is longer than [bounds], it starts where they start.
+  ///
+  /// Along an axis the view does not scroll, [rect] stays put. The margin
+  /// above and below a match in a sideways row reaches past the row, and the
+  /// view around the row still has to keep that margin clear of the bar.
+  static Rect _moveInto(Rect bounds, Rect rect, Set<Axis> axes) {
     double shift(double start, double end, double min, double max) {
       if (end - start >= max - min || start < min) return min - start;
       if (end > max) return max - end;
       return 0;
     }
 
-    return switch (axis) {
-      Axis.vertical => rect.translate(
-        0,
-        shift(rect.top, rect.bottom, bounds.top, bounds.bottom),
-      ),
-      Axis.horizontal => rect.translate(
-        shift(rect.left, rect.right, bounds.left, bounds.right),
-        0,
-      ),
-    };
+    return rect.translate(
+      axes.contains(Axis.horizontal)
+          ? shift(rect.left, rect.right, bounds.left, bounds.right)
+          : 0,
+      axes.contains(Axis.vertical)
+          ? shift(rect.top, rect.bottom, bounds.top, bounds.bottom)
+          : 0,
+    );
   }
 
   /// Whether [physics] settles its scroll view on a whole page, as a

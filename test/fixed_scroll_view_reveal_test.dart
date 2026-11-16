@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:find_in_page/find_in_page.dart';
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
@@ -267,6 +269,58 @@ void main() {
     });
   }
 
+  // A table scrolls along both axes. Its cell off to the right is brought
+  // inside it, and the tab around it stays.
+  testWidgets('keeps a TabBarView on the tab holding a table', (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = FindInPageController();
+    final tabs = TabController(length: 2, vsync: tester);
+    addTearDown(controller.dispose);
+    addTearDown(tabs.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FindInPageScope(
+          controller: controller,
+          child: Scaffold(
+            body: TabBarView(
+              controller: tabs,
+              children: [
+                _Grid(
+                  delegate: TwoDimensionalChildBuilderDelegate(
+                    maxXIndex: 9,
+                    maxYIndex: 9,
+                    builder: (context, cell) => Center(
+                      child: FindableText(
+                        cell.xIndex == 7 && cell.yIndex == 1
+                            ? 'cell needle'
+                            : 'cell ${cell.xIndex} ${cell.yIndex}',
+                        key: ValueKey((cell.xIndex, cell.yIndex)),
+                      ),
+                    ),
+                  ),
+                ),
+                const Text('second tab'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    controller.open();
+    await tester.pumpAndSettle();
+    final view = tester.getRect(find.byType(TabBarView));
+
+    controller.search('needle');
+    await tester.pumpAndSettle();
+    expect(tabs.index, 0);
+    final match = controller.activeMatch!;
+    final rect = _matchRect(tester, const ValueKey((7, 1)), match);
+    expect(_inside(rect, view), isTrue, reason: '$rect');
+  });
+
   testWidgets('scrolls a view under NeverScrollableScrollPhysics', (
     tester,
   ) async {
@@ -341,6 +395,76 @@ void main() {
     );
     expect(rect.center.dy, closeTo(body.center.dy, 0.5));
   });
+
+  // The margin above and below a match reaches past a sideways row. The view
+  // around the row still keeps that margin clear of the bar.
+  testWidgets('keeps a sideways row clear of the bar in a view under '
+      'NeverScrollableScrollPhysics', (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = FindInPageController();
+    final scroll = ScrollController();
+    final row = ScrollController();
+    addTearDown(controller.dispose);
+    addTearDown(scroll.dispose);
+    addTearDown(row.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FindInPageScope(
+          controller: controller,
+          child: Scaffold(
+            body: SingleChildScrollView(
+              controller: scroll,
+              physics: const NeverScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  const SizedBox(height: 1000),
+                  SingleChildScrollView(
+                    controller: row,
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < 30; i++)
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: FindableText(
+                              i == 25 ? 'chip needle' : 'chip $i',
+                              key: ValueKey(i),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 2000),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    controller.open();
+    await tester.pumpAndSettle();
+    // The row starts under the bar.
+    scroll.jumpTo(990);
+    await tester.pumpAndSettle();
+    final bar = tester.getRect(find.byType(FindBar));
+    final body = tester.getRect(find.byType(SingleChildScrollView).first);
+    expect(
+      tester.getRect(find.byKey(const ValueKey(0))).top,
+      lessThan(bar.bottom),
+    );
+
+    controller.search('needle');
+    await tester.pumpAndSettle();
+    expect(row.offset, greaterThan(0));
+    final match = controller.activeMatch!;
+    final rect = _matchRect(tester, const ValueKey(25), match);
+    expect(_inside(rect, body), isTrue, reason: '$rect');
+    expect(rect.overlaps(bar), isFalse, reason: '$rect $bar');
+  });
 }
 
 /// Keeps its page built after the `PageView` scrolls away from it.
@@ -362,6 +486,101 @@ class _KeptAliveState extends State<_KeptAlive>
   Widget build(BuildContext context) {
     super.build(context);
     return widget.child;
+  }
+}
+
+/// A grid of 200 pixel cells that scrolls along both axes, the smallest
+/// two-dimensional scroll view the framework lets a test build. It builds
+/// every cell, as a short table would.
+class _Grid extends TwoDimensionalScrollView {
+  const _Grid({required super.delegate});
+
+  @override
+  Widget buildViewport(
+    BuildContext context,
+    ViewportOffset verticalOffset,
+    ViewportOffset horizontalOffset,
+  ) => _GridViewport(
+    horizontalOffset: horizontalOffset,
+    horizontalAxisDirection: horizontalDetails.direction,
+    verticalOffset: verticalOffset,
+    verticalAxisDirection: verticalDetails.direction,
+    mainAxis: mainAxis,
+    delegate: delegate as TwoDimensionalChildBuilderDelegate,
+  );
+}
+
+class _GridViewport extends TwoDimensionalViewport {
+  const _GridViewport({
+    required super.verticalOffset,
+    required super.verticalAxisDirection,
+    required super.horizontalOffset,
+    required super.horizontalAxisDirection,
+    required TwoDimensionalChildBuilderDelegate super.delegate,
+    required super.mainAxis,
+  });
+
+  @override
+  RenderTwoDimensionalViewport createRenderObject(BuildContext context) =>
+      _RenderGrid(
+        horizontalOffset: horizontalOffset,
+        horizontalAxisDirection: horizontalAxisDirection,
+        verticalOffset: verticalOffset,
+        verticalAxisDirection: verticalAxisDirection,
+        mainAxis: mainAxis,
+        delegate: delegate as TwoDimensionalChildBuilderDelegate,
+        childManager: context as TwoDimensionalChildManager,
+      );
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderGrid renderObject) {
+    renderObject
+      ..horizontalOffset = horizontalOffset
+      ..horizontalAxisDirection = horizontalAxisDirection
+      ..verticalOffset = verticalOffset
+      ..verticalAxisDirection = verticalAxisDirection
+      ..mainAxis = mainAxis
+      ..delegate = delegate;
+  }
+}
+
+class _RenderGrid extends RenderTwoDimensionalViewport {
+  _RenderGrid({
+    required super.horizontalOffset,
+    required super.horizontalAxisDirection,
+    required super.verticalOffset,
+    required super.verticalAxisDirection,
+    required TwoDimensionalChildBuilderDelegate delegate,
+    required super.mainAxis,
+    required super.childManager,
+  }) : super(delegate: delegate);
+
+  static const double _cell = 200;
+
+  @override
+  void layoutChildSequence() {
+    final builder = delegate as TwoDimensionalChildBuilderDelegate;
+    final columns = builder.maxXIndex! + 1;
+    final rows = builder.maxYIndex! + 1;
+    final h = horizontalOffset.pixels;
+    final v = verticalOffset.pixels;
+    for (var x = 0; x < columns; x++) {
+      for (var y = 0; y < rows; y++) {
+        final child = buildOrObtainChildFor(
+          ChildVicinity(xIndex: x, yIndex: y),
+        )!;
+        child.layout(BoxConstraints.tight(const Size(_cell, _cell)));
+        parentDataOf(child).layoutOffset = Offset(x * _cell - h, y * _cell - v);
+      }
+    }
+    verticalOffset.applyContentDimensions(
+      0,
+      math.max(0, _cell * rows - viewportDimension.height),
+    );
+    horizontalOffset.applyContentDimensions(
+      0,
+      math.max(0, _cell * columns - viewportDimension.width),
+    );
   }
 }
 
