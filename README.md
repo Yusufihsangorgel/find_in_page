@@ -399,9 +399,10 @@ the highlight from those offsets is the builder's job, the same way a plain
 `ListView.builder`'s `itemBuilder` owns the whole item.
 
 Because an off-screen match has no live widget, revealing it cannot call
-`Scrollable.ensureVisible`. `FindableListView` animates a `ScrollController` to
-the matched row's offset instead, which is why each row's extent has to be
-known without building it. Pass `itemExtent` when every row is the same height
+`Scrollable.ensureVisible`. `FindableListView` animates a `ScrollController`
+instead. It aims at the matched row's offset minus 30% of the viewport, and
+each row's extent has to be known without building it to find that offset.
+Pass `itemExtent` when every row is the same height
 (or width, for a horizontal list). When rows differ, pass `itemExtentBuilder`
 in its place, the same callback `ListView.builder` takes. The offset is then
 the sum of the extents of the rows before the match.
@@ -438,10 +439,12 @@ becomes active.
   it, and 16 pixels from an edge the bar does not cover. With
   `showBar: false` the scope cannot see the find UI and keeps 72 pixels at
   both edges. It does the same for a search run while its bar is closed. A
-  short scroll view gives the two gaps at most half its height. In a scroll
-  view nested in another, a match near the start of the inner one can still
-  end up under the bar, since the outer one is told the inner one scrolled
-  further than it could.
+  short scroll view gives the two gaps at most half its height. A match near
+  either end of the scroll range moves only as far as the range allows and
+  can stay under the bar. In a scroll view nested in another, a match near
+  the start of the inner one can still end up under the bar, and one near its
+  end under a bar at the bottom, since the outer one is told the inner one
+  scrolled further than it could.
 - A `PageView` settles on a whole page after every scroll, and a scroll view
   with `NeverScrollableScrollPhysics` does not scroll implicitly. For a
   `FindableText` such a view is moved to put the match in its middle, and a
@@ -449,6 +452,9 @@ becomes active.
   change through its `ScrollController`, and a `PageView` reports the new
   page to `onPageChanged`. A `PageView` cannot move a match within the page
   it shows, and a match near the top of that page can stay under the bar.
+  A `PageView` out of view inside an outer scroll view still turns to a
+  `FindableText` match on a page it keeps alive but does not show. The outer
+  scroll view does not move, and the match stays out of view.
   Discovered text in such a view can stay out of view. A custom
   `FindableSource` without a `reveal` callback has its whole widget scrolled
   into view. In a widget taller than the viewport, that can leave the match

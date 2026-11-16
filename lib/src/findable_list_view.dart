@@ -42,9 +42,10 @@ typedef FindableListItemBuilder =
 ///
 /// Because an off-screen match has no live widget, revealing it cannot use
 /// `Scrollable.ensureVisible`. [FindableListView] instead animates
-/// [scrollController] to the matched item's offset, then hands the item's
-/// matches to [itemBuilder] once it is built so it can render the
-/// highlight itself. The offset is the list's leading padding plus the sum
+/// [scrollController] to the matched item's offset minus 30% of the
+/// viewport, then hands the item's matches to [itemBuilder] once it is
+/// built so it can render the highlight itself. The offset is the list's
+/// leading padding plus the sum
 /// of the extents of the items before it, which is why every item's extent
 /// has to be known without building it. Pass [itemExtent] when all items are
 /// the same size, or [itemExtentBuilder] when they are not.

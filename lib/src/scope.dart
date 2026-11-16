@@ -119,7 +119,8 @@ final class FindInPageScope extends StatefulWidget {
   /// the ambient text direction.
   ///
   /// Revealing a match keeps it clear of the bar, at the top of the screen or
-  /// at the bottom. The same holds for a bar from [barBuilder].
+  /// at the bottom, apart from the cases the README lists under Limits. The
+  /// same holds for a bar from [barBuilder].
   final AlignmentGeometry barAlignment;
 
   /// Builds the bar shown when find opens, in place of the default
