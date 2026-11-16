@@ -35,6 +35,19 @@ abstract interface class FindableSource {
   BuildContext? get findableContext;
 }
 
+/// A source that can scroll a range of its own text into view.
+///
+/// Not exported. `FindableText` implements it, and the controller then aims
+/// at the matched characters instead of the whole widget. That matters in a
+/// paragraph taller than its viewport, where the widget can be on screen
+/// while the matched line is not.
+abstract interface class MatchRectangleReveal implements FindableSource {
+  /// Scrolls the enclosing viewports until the first box covering
+  /// [start]..[end] is visible and clear of [bar], the find bar's place on
+  /// screen when the scope shows one.
+  void showMatchOnScreen(int start, int end, {Rect? bar});
+}
+
 /// Drives a find-in-page session: holds the query, computes matches across
 /// all registered sources, and tracks the active match.
 ///
@@ -66,6 +79,7 @@ final class FindInPageController extends ChangeNotifier implements FindSession {
   bool _isOpen = false;
   VoidCallback? _openHandler;
   VoidCallback? _closeHandler;
+  Rect? Function()? _barBounds;
 
   /// The current search query. Empty when no search is active.
   @override
@@ -163,6 +177,18 @@ final class FindInPageController extends ChangeNotifier implements FindSession {
     _openHandler = onOpen;
     _closeHandler = onClose;
     if (onOpen == null && onClose == null) _setOpen(false);
+  }
+
+  /// Lets the nearest `FindInPageScope` report where its bar is on screen, in
+  /// global coordinates. The callback returns null while no bar shows. A
+  /// revealed match is kept clear of the bar.
+  ///
+  /// Wiring between this package's own widgets. Code outside the package
+  /// gets an analyzer warning for calling it.
+  @internal
+  // ignore: use_setters_to_change_properties
+  void setBarBounds(Rect? Function()? bounds) {
+    _barBounds = bounds;
   }
 
   void _setOpen(bool value) {
@@ -429,7 +455,22 @@ final class FindInPageController extends ChangeNotifier implements FindSession {
       if (source is RenderedTextSource) {
         // No element to hand to Scrollable.ensureVisible, and aiming at the
         // matched characters beats aiming at the whole paragraph anyway.
-        source.showMatchOnScreen(match.start, match.end);
+        showTextOnScreen(
+          source,
+          match.start,
+          match.end,
+          bar: _barBounds?.call(),
+        );
+        return;
+      }
+      if (source is MatchRectangleReveal) {
+        // Scrolling the whole widget into view can leave the matched line
+        // offscreen when the paragraph is taller than the viewport.
+        source.showMatchOnScreen(
+          match.start,
+          match.end,
+          bar: _barBounds?.call(),
+        );
         return;
       }
       final context = source.findableContext;

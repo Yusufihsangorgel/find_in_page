@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
@@ -51,17 +52,16 @@ sealed class RenderedTextSource implements FindableSource {
   }
 
   /// Scrolls whatever viewports contain this text until [start]..[end] is
-  /// visible.
+  /// visible, with a margin above and below it.
+  ///
+  /// This method does not know where a find bar is. It keeps 72 logical
+  /// pixels at both edges, or a quarter of the shortest enclosing vertical
+  /// viewport when that is less. A match already at least that far from both
+  /// edges stays where it is. Near the start or end of the scroll range the
+  /// margin shrinks to what the range allows. The controller reveals the
+  /// active match with the scope's bar taken into account.
   void showMatchOnScreen(int start, int end) {
-    final box = renderObject;
-    if (!box.attached || !box.hasSize) return;
-    final boxes = textBoxes(start, end);
-    box.showOnScreen(
-      descendant: box,
-      rect: boxes.isEmpty ? null : boxes.first.toRect(),
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
-    );
+    showTextOnScreen(this, start, end);
   }
 
   @override
@@ -71,6 +71,130 @@ sealed class RenderedTextSource implements FindableSource {
 
   @override
   int get hashCode => identityHashCode(renderObject);
+}
+
+/// The gap kept between a revealed match and the bar, and between the match
+/// and a viewport edge with no bar over it, in logical pixels.
+const double _barGap = 16;
+
+/// The gap kept at both edges when no bar is known, in logical pixels.
+///
+/// A scope with `showBar: false` leaves the find UI to the app, and a direct
+/// call to [RenderedTextSource.showMatchOnScreen] has no bar at all. Either
+/// way the bar could be anywhere. 72 clears the built-in bar at a text scale
+/// of 1, 56 tall and 8 below the top of the safe area.
+const double _revealMargin = 72;
+
+/// How long a reveal animates.
+const Duration _revealDuration = Duration(milliseconds: 200);
+
+/// Scrolls the viewports around [source] until [start]..[end] is visible with
+/// a margin above and below it.
+///
+/// [bar] is where the find bar is on screen, in global coordinates, or null
+/// when there is none to measure. The returned [match] is the first box of the
+/// range and [shown] is that box with its margin, both in the coordinates of
+/// the source's render object. Returns null when the render object is not laid
+/// out, or when the range has no box and the whole text was revealed instead.
+({Rect match, Rect shown})? showTextOnScreen(
+  RenderedTextSource source,
+  int start,
+  int end, {
+  Rect? bar,
+}) {
+  final box = source.renderObject;
+  if (!box.attached || !box.hasSize) return null;
+  final boxes = source.textBoxes(start, end);
+  if (boxes.isEmpty) {
+    box.showOnScreen(
+      descendant: box,
+      duration: _revealDuration,
+      curve: Curves.easeInOut,
+    );
+    return null;
+  }
+  final match = boxes.first.toRect();
+  final shown = _withRevealMargin(box, match, bar);
+  box.showOnScreen(
+    descendant: box,
+    rect: shown,
+    duration: _revealDuration,
+    curve: Curves.easeInOut,
+  );
+  return (match: match, shown: shown);
+}
+
+/// [match] with the reveal margin added above and below.
+///
+/// With [bar] known, the margin at the edge the bar covers is the depth of
+/// the bar inside the outermost vertical viewport around [box], plus
+/// [_barGap]. That viewport is the one fixed on screen, and its edge is where
+/// a match lands when it has to scroll. The other edge gets [_barGap]. The
+/// bar grows with the text scale and can take a second row, and the margin
+/// follows. Without [bar] both edges get [_revealMargin].
+///
+/// The two margins together take at most half of the shortest vertical
+/// viewport around [box], shared in proportion. In a short scroll view that
+/// leaves the other half for the match and for matches that need no
+/// scrolling. Only the vertical extent grows: the find bar spans the top of
+/// the screen, and a horizontal margin would only make a sideways list scroll
+/// further than needed.
+Rect _withRevealMargin(RenderObject box, Rect match, Rect? bar) {
+  RenderBox? outermost;
+  var shortest = double.infinity;
+  for (var node = box.parent; node != null; node = node.parent) {
+    if (node is RenderBox &&
+        node is RenderAbstractViewport &&
+        node.hasSize &&
+        _scrollsVertically(node as RenderAbstractViewport, box, match)) {
+      outermost = node;
+      shortest = math.min(shortest, node.size.height);
+    }
+  }
+  var above = bar == null ? _revealMargin : _barGap;
+  var below = above;
+  if (bar != null && outermost != null) {
+    final viewport = MatrixUtils.transformRect(
+      outermost.getTransformTo(null),
+      Offset.zero & outermost.size,
+    );
+    if (bar.left < viewport.right && bar.right > viewport.left) {
+      if (bar.center.dy < viewport.center.dy) {
+        above += math.max(0, bar.bottom - viewport.top);
+      } else {
+        below += math.max(0, viewport.bottom - bar.top);
+      }
+    }
+  }
+  final room = shortest / 2;
+  if (above + below > room) {
+    final share = room / (above + below);
+    above *= share;
+    below *= share;
+  }
+  return Rect.fromLTRB(
+    match.left,
+    match.top - above,
+    match.right,
+    match.bottom + below,
+  );
+}
+
+/// Whether [viewport] scrolls [box] up and down.
+///
+/// Moving [match] down a pixel changes the offset that reveals it only in a
+/// viewport that scrolls vertically. A sideways one, such as a row of chips
+/// 48 tall, says nothing about the room above and below the match, and its
+/// height would cut the margin to 12.
+bool _scrollsVertically(
+  RenderAbstractViewport viewport,
+  RenderObject box,
+  Rect match,
+) {
+  double offsetFor(Rect rect) => viewport
+      .getOffsetToReveal(box, 0, rect: rect, axis: Axis.vertical)
+      .offset;
+  return offsetFor(match) != offsetFor(match.translate(0, 1));
 }
 
 /// Text drawn by a `Text`, `Text.rich`, or any widget that builds one,

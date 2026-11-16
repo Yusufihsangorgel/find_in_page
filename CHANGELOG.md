@@ -117,6 +117,26 @@ in #5.
 - Revealing a match in a `FindableListView` takes the list's leading padding
   into account, in every scroll direction. The row used to land that much
   further along the list than the reveal aimed.
+- `FindableText` scrolls the matched line into view, as discovered text
+  already did. In a paragraph taller than the viewport the active match could
+  stay offscreen. `test/tall_paragraph_reveal_test.dart` steps through four
+  matches in one tall paragraph.
+- A revealed match stays clear of the scope's find bar, in `FindableText` and
+  in discovered text. Scrolling stops 16 pixels below the bar, or 16 pixels
+  from an edge the bar does not cover, and a match already inside those
+  bounds does not move. The bar is measured as it is laid out. That covers
+  its second row at a large text scale, a bar placed at the bottom with
+  `barAlignment`, and a bar from `barBuilder`. With `showBar: false` the
+  scope cannot see the find UI and keeps 72 pixels at both edges. In a short
+  scroll view the two gaps take at most half its height. Before, discovered
+  text stopped at the very edge, under the bar on a page with no app bar, and
+  a `FindableText` was aligned about 30% down the viewport even when the
+  match was already visible. A `FindableText` in a `PageView` or under
+  `NeverScrollableScrollPhysics` is still scrolled there, now to put the match
+  in the middle of that view. `test/reveal_margin_test.dart` covers text
+  scales from 1 to 3, a bar at the bottom, short, sideways and nested scroll
+  views, and a `SelectionArea`. `test/fixed_scroll_view_reveal_test.dart`
+  covers the `PageView` and the view the user cannot scroll.
 
 ### Migration notes
 

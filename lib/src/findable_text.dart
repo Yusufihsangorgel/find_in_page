@@ -1,5 +1,7 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import 'auto_discovery.dart';
 import 'controller.dart';
 import 'exclude_from_find.dart';
 import 'scope.dart';
@@ -92,7 +94,8 @@ final class FindableText extends StatefulWidget {
   State<FindableText> createState() => _FindableTextState();
 }
 
-class _FindableTextState extends State<FindableText> implements FindableSource {
+class _FindableTextState extends State<FindableText>
+    implements FindableSource, MatchRectangleReveal {
   FindInPageController? _controller;
 
   @override
@@ -100,6 +103,100 @@ class _FindableTextState extends State<FindableText> implements FindableSource {
 
   @override
   BuildContext? get findableContext => mounted ? context : null;
+
+  @override
+  void showMatchOnScreen(int start, int end, {Rect? bar}) {
+    final paragraph = _paragraph();
+    if (paragraph == null) return;
+    // The rendered paragraph holds exactly [findableText]. Discovered text
+    // gets the same reveal.
+    final revealed = showTextOnScreen(
+      ParagraphSource(paragraph),
+      start,
+      end,
+      bar: bar,
+    );
+    if (revealed == null) return;
+    _showInFixedScrollViews(paragraph, revealed.match, revealed.shown);
+  }
+
+  /// Moves the scroll views around this text that do not scroll implicitly,
+  /// a `PageView` or one under `NeverScrollableScrollPhysics`, until [shown]
+  /// is inside them.
+  ///
+  /// [RenderObject.showOnScreen] passes over those views. A user may have no
+  /// way to scroll one, and a match left outside it could never be seen. Each
+  /// such view that does not already show [shown] whole is moved to put
+  /// [match] in its middle. A `PageView` then settles on the page holding the
+  /// match. Both rectangles are in the coordinates of [paragraph].
+  void _showInFixedScrollViews(RenderBox paragraph, Rect match, Rect shown) {
+    for (
+      var scrollable = context.findAncestorStateOfType<ScrollableState>();
+      scrollable != null;
+      scrollable = scrollable.context.findAncestorStateOfType<ScrollableState>()
+    ) {
+      final position = scrollable.position;
+      if (position.allowImplicitScrolling || !position.hasPixels) continue;
+      final viewport = _viewportOf(scrollable, paragraph);
+      if (viewport == null) continue;
+      RevealedOffset reveal(double alignment, Rect rect) =>
+          viewport.getOffsetToReveal(
+            paragraph,
+            alignment,
+            rect: rect,
+            axis: position.axis,
+          );
+      final hidden = RevealedOffset.clampOffset(
+        leadingEdgeOffset: reveal(0, shown),
+        trailingEdgeOffset: reveal(1, shown),
+        currentOffset: position.pixels,
+      );
+      if (hidden == null) continue;
+      position.moveTo(
+        reveal(0.5, match).offset,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  /// The viewport [scrollable] scrolls, found among the ancestors of
+  /// [paragraph], or null.
+  ///
+  /// It is the highest viewport below the scrollable's own render object.
+  /// Viewports further down belong to scroll views nested inside it.
+  static RenderAbstractViewport? _viewportOf(
+    ScrollableState scrollable,
+    RenderObject paragraph,
+  ) {
+    final root = scrollable.context.findRenderObject();
+    RenderAbstractViewport? found;
+    for (var node = paragraph.parent; node != null; node = node.parent) {
+      if (identical(node, root)) return found;
+      if (node is RenderAbstractViewport) found = node;
+    }
+    return null;
+  }
+
+  /// The paragraph [build] rendered, or null when there is none.
+  RenderParagraph? _paragraph() {
+    if (!mounted) return null;
+    RenderParagraph? found;
+    void visit(Element element) {
+      if (found != null) return;
+      if (element is RenderObjectElement) {
+        final renderObject = element.renderObject;
+        if (renderObject is RenderParagraph) {
+          found = renderObject;
+          return;
+        }
+      }
+      element.visitChildElements(visit);
+    }
+
+    context.visitChildElements(visit);
+    return found;
+  }
 
   @override
   void didChangeDependencies() {

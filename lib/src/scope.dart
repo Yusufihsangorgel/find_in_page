@@ -117,6 +117,9 @@ final class FindInPageScope extends StatefulWidget {
 
   /// Where the built-in bar is placed. Directional, so `topEnd` follows
   /// the ambient text direction.
+  ///
+  /// Revealing a match keeps it clear of the bar, at the top of the screen or
+  /// at the bottom. The same holds for a bar from [barBuilder].
   final AlignmentGeometry barAlignment;
 
   /// Builds the bar shown when find opens, in place of the default
@@ -190,6 +193,7 @@ class _FindInPageScopeState extends State<FindInPageScope> {
   FindInPageController? _ownedController;
   final OverlayPortalController _portal = OverlayPortalController();
   final GlobalKey _subtreeKey = GlobalKey();
+  final GlobalKey _barKey = GlobalKey();
   final FindBarFocusRequests _barFocus = FindBarFocusRequests();
   List<RenderedTextSource> _lastSweep = const [];
   bool _barVisible = false;
@@ -207,6 +211,7 @@ class _FindInPageScopeState extends State<FindInPageScope> {
       _handleControllerOpen,
       _handleControllerClose,
     );
+    _controller.setBarBounds(_barBounds);
   }
 
   @override
@@ -219,11 +224,27 @@ class _FindInPageScopeState extends State<FindInPageScope> {
     }
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?.setOpenCloseHandlers(null, null);
+      oldWidget.controller?.setBarBounds(null);
       _controller.setOpenCloseHandlers(
         _handleControllerOpen,
         _handleControllerClose,
       );
+      _controller.setBarBounds(_barBounds);
     }
+  }
+
+  /// Where the bar is on screen, or null while it is hidden.
+  ///
+  /// Measured from what was laid out, the bar from [FindInPageScope.barBuilder]
+  /// included. Its height follows the text scale and a second row.
+  Rect? _barBounds() {
+    if (!_barVisible) return null;
+    final bar = _barKey.currentContext?.findRenderObject();
+    if (bar is! RenderBox || !bar.attached || !bar.hasSize) return null;
+    return MatrixUtils.transformRect(
+      bar.getTransformTo(null),
+      Offset.zero & bar.size,
+    );
   }
 
   void _installDiscovery() {
@@ -251,6 +272,7 @@ class _FindInPageScopeState extends State<FindInPageScope> {
     // Also resets isOpen to false: a passed-in controller must not keep
     // reporting a bar that this scope, and the bar with it, no longer has.
     widget.controller?.setOpenCloseHandlers(null, null);
+    widget.controller?.setBarBounds(null);
     _ownedController?.dispose();
     super.dispose();
   }
@@ -340,13 +362,16 @@ class _FindInPageScopeState extends State<FindInPageScope> {
               alignment: widget.barAlignment,
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: Builder(
-                  builder: (context) =>
-                      widget.barBuilder?.call(context, _controller) ??
-                      FindBar(
-                        controller: _controller,
-                        onClose: _controller.close,
-                      ),
+                child: KeyedSubtree(
+                  key: _barKey,
+                  child: Builder(
+                    builder: (context) =>
+                        widget.barBuilder?.call(context, _controller) ??
+                        FindBar(
+                          controller: _controller,
+                          onClose: _controller.close,
+                        ),
+                  ),
                 ),
               ),
             ),
